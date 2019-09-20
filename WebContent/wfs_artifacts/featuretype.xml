@@ -1,0 +1,242 @@
+<?xml version="1.0" ?>
+<schema
+targetNamespace="http://www.disit.org/km4city/schema#"
+xmlns:km4c="http://www.disit.org/km4city/schema#"
+xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+xmlns="http://www.w3.org/2001/XMLSchema"
+xmlns:gml="http://www.opengis.net/gml/3.2"
+elementFormDefault="qualified" version="2.0.2">
+<import namespace="http://www.opengis.net/gml/3.2" schemaLocation="http://schemas.opengis.net/gml/3.2.1/gml.xsd"/>
+
+<!-- =============================================
+define global elements
+============================================= -->
+
+<element name="km4c:Service" type="km4c:Service" substitutionGroup="gml:AbstractFeature"/>
+<element name="km4c:BusStop" type="km4c:BusStop" substitutionGroup="gml:AbstractFeature"/>
+<element name="km4c:Fuel_station" type="km4c:Fuel_station" substitutionGroup="gml:AbstractFeature"/>
+<element name="km4c:Smart_waste_container" type="km4c:Smart_waste_container" substitutionGroup="gml:AbstractFeature"/>
+<element name="km4c:Smart_bench" type="km4c:Smart_bench" substitutionGroup="gml:AbstractFeature"/>
+<element name="km4c:Event" type="km4c:Event" substitutionGroup="gml:AbstractFeature"/>
+<element name="km4c:Route" type="km4c:Route" substitutionGroup="gml:AbstractFeature"/>
+<element name="km4c:Urban_bus" type="km4c:Urban_bus" substitutionGroup="gml:AbstractFeature"/>
+
+<!-- ============================================
+define complex types (classes)
+============================================ -->
+
+<complexType name="Service">
+    <complexContent>
+        <extension base="gml:AbstractFeatureType">
+        <sequence>            
+            <element name="serviceUri" type="xsd:anyURI" />
+            <element name="name" type="xsd:string" />       
+            <element name="typeLabel" type="xsd:string" />            
+            <element name="geometry" type="gml:PointPropertyType" />
+            <element name="distance" type="xsd:float" />
+            <element name="city" type="xsd:string" />
+            <element name="cap" type="xsd:string" />
+            <element name="province" type="xsd:string" />
+            <element name="address" type="xsd:string" />
+            <element name="civic" type="xsd:string" />
+            <element name="phone" type="xsd:string" />
+            <element name="fax" type="xsd:string" />
+            <element name="website" type="xsd:anyURI" />
+            <element name="email" type="xsd:string" />
+            <element name="note" type="xsd:string" />
+            <element name="description" type="xsd:string" />
+            <element name="linkDBpedia" type="xsd:anyURI" />            
+            <element name="avgStars" type="xsd:float" />
+            <element name="starsCount" type="xsd:integer" />
+        </sequence>
+        </extension>
+    </complexContent>
+</complexType>
+
+<complexType name="BusStop">
+    <complexContent>
+        <extension base="gml:AbstractFeatureType">
+        <sequence>            
+            <element name="serviceUri" type="xsd:anyURI" />
+            <element name="name" type="xsd:string" />            
+            <element name="geometry" type="gml:PointPropertyType" />
+            <element name="distance" type="xsd:float" />
+            <element name="city" type="xsd:string" />
+            <element name="cap" type="xsd:string" />
+            <element name="province" type="xsd:string" />
+            <element name="address" type="xsd:string" />
+            <element name="civic" type="xsd:string" />
+            <element name="phone" type="xsd:string" />
+            <element name="fax" type="xsd:string" />
+            <element name="website" type="xsd:anyURI" />
+            <element name="email" type="xsd:string" />
+            <element name="note" type="xsd:string" />
+            <element name="description" type="xsd:string" />
+            <element name="linkDBpedia" type="xsd:anyURI" />            
+            <element name="avgStars" type="xsd:float" />
+            <element name="starsCount" type="xsd:integer" />
+            <element name="agency" type="xsd:string" />
+            <element name="agencyUri" type="xsd:anyURI" />
+        </sequence>
+        </extension>
+    </complexContent>
+</complexType>
+            
+<complexType name="Fuel_station">
+    <complexContent>
+        <extension base="gml:AbstractFeatureType">
+        <sequence>            
+            <element name="serviceUri" type="xsd:anyURI" />
+            <element name="name" type="xsd:string" />            
+            <element name="geometry" type="gml:PointPropertyType" />
+            <element name="distance" type="xsd:float" />
+            <element name="city" type="xsd:string" />
+            <element name="cap" type="xsd:string" />
+            <element name="province" type="xsd:string" />
+            <element name="address" type="xsd:string" />
+            <element name="civic" type="xsd:string" />
+            <element name="phone" type="xsd:string" />
+            <element name="fax" type="xsd:string" />
+            <element name="website" type="xsd:anyURI" />
+            <element name="email" type="xsd:string" />
+            <element name="note" type="xsd:string" />
+            <element name="description" type="xsd:string" />
+            <element name="linkDBpedia" type="xsd:anyURI" />            
+            <element name="avgStars" type="xsd:float" />
+            <element name="starsCount" type="xsd:integer" />
+            <element name="brand" type="xsd:string" />
+        </sequence>
+        </extension>
+    </complexContent>
+</complexType>
+
+<complexType name="Smart_waste_container">
+    <complexContent>
+        <extension base="gml:AbstractFeatureType">
+        <sequence>            
+            <element name="serviceUri" type="xsd:anyURI" />
+            <element name="name" type="xsd:string" />            
+            <element name="geometry" type="gml:PointPropertyType" />
+            <element name="distance" type="xsd:float" />
+            <element name="city" type="xsd:string" />
+            <element name="cap" type="xsd:string" />
+            <element name="province" type="xsd:string" />
+            <element name="address" type="xsd:string" />
+            <element name="civic" type="xsd:string" />
+            <element name="phone" type="xsd:string" />
+            <element name="fax" type="xsd:string" />
+            <element name="website" type="xsd:anyURI" />
+            <element name="email" type="xsd:string" />
+            <element name="note" type="xsd:string" />
+            <element name="description" type="xsd:string" />
+            <element name="linkDBpedia" type="xsd:anyURI" />            
+            <element name="avgStars" type="xsd:float" />
+            <element name="starsCount" type="xsd:integer" />            
+            <element name="wasteType" type="xsd:anyURI" />
+            <element name="capacity" type="xsd:float" />            
+            <element name="collectionTime" type="xsd:string" />
+            <element name="physicalShape" type="xsd:string" />            
+        </sequence>
+        </extension>
+    </complexContent>
+</complexType>
+
+<complexType name="Smart_bench">
+    <complexContent>
+        <extension base="gml:AbstractFeatureType">
+        <sequence>            
+            <element name="serviceUri" type="xsd:anyURI" />
+            <element name="name" type="xsd:string" />            
+            <element name="geometry" type="gml:PointPropertyType" />
+            <element name="distance" type="xsd:float" />
+            <element name="city" type="xsd:string" />
+            <element name="cap" type="xsd:string" />
+            <element name="province" type="xsd:string" />
+            <element name="address" type="xsd:string" />
+            <element name="civic" type="xsd:string" />
+            <element name="phone" type="xsd:string" />
+            <element name="fax" type="xsd:string" />
+            <element name="website" type="xsd:anyURI" />
+            <element name="email" type="xsd:string" />
+            <element name="note" type="xsd:string" />
+            <element name="description" type="xsd:string" />
+            <element name="linkDBpedia" type="xsd:anyURI" />            
+            <element name="avgStars" type="xsd:float" />
+            <element name="starsCount" type="xsd:integer" />            
+            <element name="seats" type="xsd:integer" />
+            <element name="withWifi" type="xsd:boolean" />            
+            <element name="withUsb" type="xsd:boolean" />
+            <element name="withAudio" type="xsd:boolean" />                        
+        </sequence>
+        </extension>
+    </complexContent>
+</complexType>            
+
+<complexType name="Event">
+    <complexContent>
+        <extension base="gml:AbstractFeatureType">
+        <sequence>            
+            <element name="serviceUri" type="xsd:anyURI" />
+            <element name="name" type="xsd:string" />            
+            <element name="geometry" type="gml:PointPropertyType" />
+            <element name="distance" type="xsd:float" />
+            <element name="city" type="xsd:string" />
+            <element name="cap" type="xsd:string" />
+            <element name="province" type="xsd:string" />
+            <element name="address" type="xsd:string" />
+            <element name="civic" type="xsd:string" />
+            <element name="phone" type="xsd:string" />
+            <element name="fax" type="xsd:string" />
+            <element name="website" type="xsd:anyURI" />
+            <element name="email" type="xsd:string" />
+            <element name="note" type="xsd:string" />
+            <element name="description" type="xsd:string" />
+            <element name="linkDBpedia" type="xsd:anyURI" />            
+            <element name="avgStars" type="xsd:float" />
+            <element name="starsCount" type="xsd:integer" />     
+            <element name="startDate" type="xsd:dateTime" />     
+            <element name="startTime" type="xsd:string" />  
+            <element name="endDate" type="xsd:dateTime" />  
+            <element name="endTime" type="xsd:string" />  
+            <element name="eventCategory" type="xsd:string" />  
+            <element name="place" type="xsd:string" />  
+            <element name="freeEvent" type="xsd:string" />  
+            <element name="price" type="xsd:string" />  
+        </sequence>
+        </extension>
+    </complexContent>
+</complexType>       
+
+<complexType name="Route">
+    <complexContent>
+        <extension base="gml:AbstractFeatureType">
+        <sequence>           
+            <element name="geometry" type="gml:CurvePropertyType" /> 
+            <element name="lineNumber" type="xsd:string" />
+            <element name="lineName" type="xsd:string" />            
+            <element name="route" type="xsd:string" />
+            <element name="routeUri" type="xsd:anyURI" />            
+            <element name="agency" type="xsd:string" />
+            <element name="agencyUri" type="xsd:anyURI" /> 
+        </sequence>
+        </extension>
+    </complexContent>
+</complexType>  
+
+<complexType name="Urban_bus">
+    <complexContent>
+        <extension base="gml:AbstractFeatureType">
+        <sequence>         
+            <element name="serviceUri" type="xsd:anyURI" />
+            <element name="name" type="xsd:string" />            
+            <element name="geometry" type="gml:PointPropertyType" />
+            <element name="distance" type="xsd:float" />              
+            <element name="vehicleNum" type="xsd:string" /> 
+            <element name="line" type="xsd:string" />
+            <element name="direction" type="xsd:string" />            
+            <element name="detectionTime" type="xsd:string" />
+        </sequence>
+        </extension>
+    </complexContent>
+</complexType>
+</schema>

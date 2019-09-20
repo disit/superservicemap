@@ -1,0 +1,73 @@
+<?xml version="1.0" ?>
+<DescribeStoredQueriesResponse xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:fes="http://www.opengis.net/fes/2.0" xmlns:wfs="http://www.opengis.net/wfs/2.0" xmlns:gml="http://www.opengis.net/gml/3.2" xmlns:ows="http://www.opengis.net/ows/1.1" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.opengis.net/wfs/2.0 http://geoserv.weichand.de:8080/geoserver/schemas/wfs/2.0/wfs.xsd">
+    <StoredQueryDescription id="urn:ogc:def:query:OGC-WFS::GetFeatureById">
+        <Parameter name="id" type="xsd:string"/>
+        <wfs:QueryExpressionText returnFeatureTypes="km4c:Service,km4c:BusStop,km4c:Fuel_station,km4c:Smart_waste_container,km4c:Smart_bench,km4c:Event,km4c:Route,km4c:Urban_bus"    
+    language="urn:ogc:def:queryLanguage:OGC-WFS::WFS_QueryExpression" isPrivate="false">      
+    <wfs:Query typeName="km4c:Service">        
+       <ogc:Filter>
+         <ogc:PropertyIsEqualTo>            
+             <ogc:Literal>serviceUri</ogc:Literal>            
+             <ogc:Literal>${id}</ogc:Literal>          
+         </ogc:PropertyIsEqualTo>        
+       </ogc:Filter>      
+    </wfs:Query>    
+    <wfs:Query typeName="km4c:BusStop">        
+       <ogc:Filter>
+         <ogc:PropertyIsEqualTo>            
+             <ogc:Literal>serviceUri</ogc:Literal>            
+             <ogc:Literal>${id}</ogc:Literal>          
+         </ogc:PropertyIsEqualTo>        
+       </ogc:Filter>      
+    </wfs:Query>    
+    <wfs:Query typeName="km4c:Fuel_station">        
+       <ogc:Filter>
+         <ogc:PropertyIsEqualTo>            
+             <ogc:Literal>serviceUri</ogc:Literal>            
+             <ogc:Literal>${id}</ogc:Literal>          
+         </ogc:PropertyIsEqualTo>        
+       </ogc:Filter>      
+    </wfs:Query>    
+    <wfs:Query typeName="km4c:Smart_waste_container">        
+       <ogc:Filter>
+         <ogc:PropertyIsEqualTo>            
+             <ogc:Literal>serviceUri</ogc:Literal>            
+             <ogc:Literal>${id}</ogc:Literal>          
+         </ogc:PropertyIsEqualTo>        
+       </ogc:Filter>      
+    </wfs:Query>    
+    <wfs:Query typeName="km4c:Smart_bench">        
+       <ogc:Filter>
+         <ogc:PropertyIsEqualTo>            
+             <ogc:Literal>serviceUri</ogc:Literal>            
+             <ogc:Literal>${id}</ogc:Literal>          
+         </ogc:PropertyIsEqualTo>        
+       </ogc:Filter>      
+    </wfs:Query>    
+    <wfs:Query typeName="km4c:Event">        
+       <ogc:Filter>
+         <ogc:PropertyIsEqualTo>            
+             <ogc:Literal>serviceUri</ogc:Literal>            
+             <ogc:Literal>${id}</ogc:Literal>          
+         </ogc:PropertyIsEqualTo>        
+       </ogc:Filter>      
+    </wfs:Query> 
+    <wfs:Query typeName="km4c:Route">        
+       <ogc:Filter>
+         <ogc:PropertyIsEqualTo>            
+             <ogc:Literal>serviceUri</ogc:Literal>            
+             <ogc:Literal>${id}</ogc:Literal>          
+         </ogc:PropertyIsEqualTo>        
+       </ogc:Filter>      
+    </wfs:Query>   
+    <wfs:Query typeName="km4c:Urban_bus">        
+       <ogc:Filter>
+         <ogc:PropertyIsEqualTo>            
+             <ogc:Literal>serviceUri</ogc:Literal>            
+             <ogc:Literal>${id}</ogc:Literal>          
+         </ogc:PropertyIsEqualTo>        
+       </ogc:Filter>      
+    </wfs:Query>        
+    </wfs:QueryExpressionText>
+    </StoredQueryDescription>
+</DescribeStoredQueriesResponse>

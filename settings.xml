@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<setting>
+  <label id="username">
+    <value>root</value>
+  </label>
+  <label id="password">
+    <value>password</value>
+  </label>
+</setting>

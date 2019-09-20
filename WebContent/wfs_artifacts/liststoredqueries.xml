@@ -1,0 +1,4 @@
+<?xml version="1.0" ?>
+<ListStoredQueriesResponse>
+    <StoredQuery id="http://www.opengis.net/def/query/OGC-WFS/0/GetFeatureById"/>
+</ListStoredQueriesResponse>
