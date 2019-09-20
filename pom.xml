@@ -2,7 +2,7 @@
 	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>disit</groupId>
-	<artifactId>servicemap</artifactId>
+	<artifactId>superservicemap</artifactId>
 	<packaging>war</packaging>
 	<version>0.0.1-SNAPSHOT</version>
 	<name>servicemap Maven Webapp</name>
@@ -172,7 +172,7 @@
 	</dependencies>
 
 	<build>
-		<finalName>servicemap</finalName>
+		<finalName>superservicemap</finalName>
 		<sourceDirectory>src/main/java</sourceDirectory>
 
 		<plugins>
