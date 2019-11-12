@@ -100,7 +100,7 @@ public class MySQLManager {
             try {
                 //connection = DriverManager.getConnection("jdbc:mysql://" + IPADDRESS + "/" + DATABASE + "?user=" + USERNAME + "&password=" + PASSWORD + "&useSSL=false&serverTimezone=UTC");
                 connection = ConnectionPool.getConnection(new Object(){}.getClass().getEnclosingMethod().getName());
-                preparedStatement = connection.prepareStatement("SELECT * FROM " + DATABASE + "." + SMTABLE);
+                preparedStatement = connection.prepareStatement("SELECT * FROM " /* + DATABASE + "." */ + SMTABLE);
                 resultSet = preparedStatement.executeQuery();
                 return getQueryResult(resultSet);
             } catch (SQLException e) {
@@ -119,7 +119,7 @@ public class MySQLManager {
             try {
                     // connection = DriverManager.getConnection("jdbc:mysql://" + IPADDRESS + "/" + DATABASE + "?user=" + USERNAME + "&password=" + PASSWORD + "&useSSL=false&serverTimezone=UTC");
                     connection = ConnectionPool.getConnection(new Object(){}.getClass().getEnclosingMethod().getName());
-                    preparedStatement = connection.prepareStatement("SELECT * FROM " + DATABASE + "." + SMTABLE + " sm left join " + SMPTABLE + " smp on smp.api = '"+api+"' and smp.format = '"+format+"' and smp.servicemaps_id = sm.id where coalesce(smp.priority,0) <> -1 order by smp.priority desc");
+                    preparedStatement = connection.prepareStatement("SELECT * FROM " /* + DATABASE + "." */ + SMTABLE + " sm left join " + SMPTABLE + " smp on smp.api = '"+api+"' and smp.format = '"+format+"' and smp.servicemaps_id = sm.id where coalesce(smp.priority,0) <> -1 order by smp.priority desc");
                     resultSet = preparedStatement.executeQuery();
                     return getQueryResult(resultSet);
             } catch (SQLException e) {
@@ -140,7 +140,7 @@ public class MySQLManager {
                 connection = ConnectionPool.getConnection(new Object(){}.getClass().getEnclosingMethod().getName());
 
                 preparedStatement = connection
-                                .prepareStatement("SELECT * FROM " + DATABASE + "." + SMTABLE + " WHERE id= ? ;");
+                                .prepareStatement("SELECT * FROM " /* + DATABASE + "." */ + SMTABLE + " WHERE id= ? ;");
 
                 preparedStatement.setString(1, id);
 
@@ -173,7 +173,7 @@ public class MySQLManager {
                 connection = ConnectionPool.getConnection(new Object(){}.getClass().getEnclosingMethod().getName());
 
                 preparedStatement = connection
-                               .prepareStatement("SELECT * FROM " + DATABASE + "." + CACHETABLE + " WHERE serviceUri= ? and (temporary is null or ? < cast(insertTime as unsigned)+?);");
+                               .prepareStatement("SELECT * FROM " /* + DATABASE + "." */ + CACHETABLE + " WHERE serviceUri= ? and (temporary is null or ? < cast(insertTime as unsigned)+?);");
 
                 preparedStatement.setString(1, uri);
                 preparedStatement.setInt(2, (int) (System.currentTimeMillis() / 1000L));
@@ -189,7 +189,7 @@ public class MySQLManager {
 
                 if (!smList.isEmpty()) {
                         preparedStatement = connection.prepareStatement(
-                                        "UPDATE " + DATABASE + "." + CACHETABLE + " SET lastAccessTime=? WHERE serviceUri=?");
+                                        "UPDATE " /* + DATABASE + "." */ + CACHETABLE + " SET lastAccessTime=? WHERE serviceUri=?");
                         preparedStatement.setInt(1, (int) (System.currentTimeMillis() / 1000L));
                         preparedStatement.setString(2, uri);
                         preparedStatement.executeUpdate();
@@ -219,7 +219,7 @@ public class MySQLManager {
                 connection = ConnectionPool.getConnection(new Object(){}.getClass().getEnclosingMethod().getName());
 
                 preparedStatement = connection
-                                .prepareStatement("SELECT urlPrefix FROM " + DATABASE + "." + SMTABLE + " WHERE id= ? ;");
+                                .prepareStatement("SELECT urlPrefix FROM " /* + DATABASE + "." */ + SMTABLE + " WHERE id= ? ;");
 
                 preparedStatement.setString(1, smID);
 
@@ -248,7 +248,7 @@ public class MySQLManager {
                 connection = ConnectionPool.getConnection(new Object(){}.getClass().getEnclosingMethod().getName());
 
                 preparedStatement = connection
-                                .prepareStatement("SELECT urlPrefix FROM " + DATABASE + "." + SMTABLE + " WHERE ip= ? ;");
+                                .prepareStatement("SELECT urlPrefix FROM " /* + DATABASE + "." */ + SMTABLE + " WHERE ip= ? ;");
 
                 preparedStatement.setString(1, ip);
 
@@ -276,8 +276,8 @@ public class MySQLManager {
                 // connection = DriverManager.getConnection("jdbc:mysql://" + IPADDRESS + "/" + DATABASE + "?user=" + USERNAME + "&password=" + PASSWORD + "&useSSL=false&serverTimezone=UTC");
                 connection = ConnectionPool.getConnection(new Object(){}.getClass().getEnclosingMethod().getName());
 
-                preparedStatement = connection.prepareStatement("SELECT uri, boundingBox FROM " + DATABASE + "."
-                                + GRAPHTABLE + " JOIN " + DATABASE + "." + SMGRAPHTABLE + " ON " + GRAPHTABLE + ".id="
+                preparedStatement = connection.prepareStatement("SELECT uri, boundingBox FROM " /* + DATABASE + "." */
+                                + GRAPHTABLE + " JOIN " /* + DATABASE + "." */ + SMGRAPHTABLE + " ON " + GRAPHTABLE + ".id="
                                 + SMGRAPHTABLE + ".graph" + " WHERE serviceMap=?");
 
                 preparedStatement.setString(1, smId);
@@ -314,7 +314,7 @@ public class MySQLManager {
             try {
                 // connection = DriverManager.getConnection("jdbc:mysql://" + IPADDRESS + "/" + DATABASE + "?user=" + USERNAME + "&password=" + PASSWORD + "&useSSL=false&serverTimezone=UTC");
                 connection = ConnectionPool.getConnection(new Object(){}.getClass().getEnclosingMethod().getName());
-                preparedStatement = connection.prepareStatement("SELECT * FROM " + DATABASE + "." + GRAPHTABLE);
+                preparedStatement = connection.prepareStatement("SELECT * FROM " /* + DATABASE + "." */ + GRAPHTABLE);
                 resultSet = preparedStatement.executeQuery();
                 while (resultSet.next()) {
                     Geometry tmpg = unmarshal(resultSet.getString("boundingBox"));
@@ -354,7 +354,7 @@ public class MySQLManager {
             try {
                 // connection = DriverManager.getConnection("jdbc:mysql://" + IPADDRESS + "/" + DATABASE + "?user=" + USERNAME + "&password=" + PASSWORD + "&useSSL=false&serverTimezone=UTC");
                 connection = ConnectionPool.getConnection(new Object(){}.getClass().getEnclosingMethod().getName());
-                preparedStatement = connection.prepareStatement("SELECT * FROM " + DATABASE + "." + SMTABLE);
+                preparedStatement = connection.prepareStatement("SELECT * FROM " /* + DATABASE + "." */ + SMTABLE);
                 resultSet = preparedStatement.executeQuery();
                 while (resultSet.next()) {
 
@@ -383,9 +383,9 @@ public class MySQLManager {
             try {
                 // connection = DriverManager.getConnection("jdbc:mysql://" + IPADDRESS + "/" + DATABASE + "?user=" + USERNAME + "&password=" + PASSWORD + "&useSSL=false&serverTimezone=UTC");
                 connection = ConnectionPool.getConnection(new Object(){}.getClass().getEnclosingMethod().getName());
-                preparedStatement = connection.prepareStatement("SELECT DISTINCT " + SMTABLE + ".ip FROM " + DATABASE + "."
-                                + SMTABLE + " JOIN " + DATABASE + "." + SMGRAPHTABLE + " ON " + SMTABLE + ".id=" + SMGRAPHTABLE
-                                + ".serviceMap" + " JOIN " + DATABASE + "." + GRAPHTABLE + " ON " + GRAPHTABLE + ".id="
+                preparedStatement = connection.prepareStatement("SELECT DISTINCT " + SMTABLE + ".ip FROM " /* + DATABASE + "." */
+                                + SMTABLE + " JOIN " /* + DATABASE + "." */ + SMGRAPHTABLE + " ON " + SMTABLE + ".id=" + SMGRAPHTABLE
+                                + ".serviceMap" + " JOIN " /* + DATABASE + "." */ + GRAPHTABLE + " ON " + GRAPHTABLE + ".id="
                                 + SMGRAPHTABLE + ".graph" + " WHERE " + GRAPHTABLE + ".uri=?");
                 preparedStatement.setString(1, graph);
                 resultSet = preparedStatement.executeQuery();
@@ -411,7 +411,7 @@ public class MySQLManager {
                 // connection = DriverManager.getConnection("jdbc:mysql://" + IPADDRESS + "/" + DATABASE + "?user=" + USERNAME + "&password=" + PASSWORD + "&useSSL=false&serverTimezone=UTC");
                 connection = ConnectionPool.getConnection(new Object(){}.getClass().getEnclosingMethod().getName());
                 preparedStatement = connection
-                                .prepareStatement("SELECT uri, boundingBox FROM " + DATABASE + "." + GRAPHTABLE);
+                                .prepareStatement("SELECT uri, boundingBox FROM " /* + DATABASE + "." */ + GRAPHTABLE);
                 resultSet = preparedStatement.executeQuery();
                 while (resultSet.next()) {
                     Polygon bb = (Polygon) new WKTReader().read(resultSet.getString("boundingBox"));
@@ -439,7 +439,7 @@ public class MySQLManager {
                 connection = ConnectionPool.getConnection(new Object(){}.getClass().getEnclosingMethod().getName());
 
                 preparedStatement = connection
-                                .prepareStatement("SELECT ip, competenceArea FROM " + DATABASE + "." + SMTABLE);
+                                .prepareStatement("SELECT ip, competenceArea FROM " /* + DATABASE + "." */ + SMTABLE);
                 resultSet = preparedStatement.executeQuery();
                 while (resultSet.next()) {
                     Geometry ca = new WKTReader().read(resultSet.getString("competenceArea"));
@@ -467,7 +467,7 @@ public class MySQLManager {
                 connection = ConnectionPool.getConnection(new Object(){}.getClass().getEnclosingMethod().getName());
 
                 preparedStatement = connection
-                                .prepareStatement("SELECT ip, competenceArea FROM " + DATABASE + "." + SMTABLE);
+                                .prepareStatement("SELECT ip, competenceArea FROM " /* + DATABASE + "." */ + SMTABLE);
                 resultSet = preparedStatement.executeQuery();
                 while (resultSet.next()) {
                     Geometry ca = new WKTReader().read(resultSet.getString("competenceArea"));
@@ -497,7 +497,7 @@ public class MySQLManager {
                 connection = ConnectionPool.getConnection(new Object(){}.getClass().getEnclosingMethod().getName());
 
                 preparedStatement = connection
-                                .prepareStatement("SELECT urlPrefix, competenceArea FROM " + DATABASE + "." + SMTABLE);
+                                .prepareStatement("SELECT urlPrefix, competenceArea FROM " /* + DATABASE + "." */ + SMTABLE);
                 resultSet = preparedStatement.executeQuery();
                 while (resultSet.next()) {
                     Geometry ca = new WKTReader().read(resultSet.getString("competenceArea"));
@@ -528,7 +528,7 @@ public class MySQLManager {
                 connection = ConnectionPool.getConnection(new Object(){}.getClass().getEnclosingMethod().getName());
 
                 preparedStatement = connection
-                                .prepareStatement("SELECT urlPrefix, competenceArea FROM " + DATABASE + "." + SMTABLE + " sm left join " + SMPTABLE + " smp on smp.api = '"+api+"' and smp.format = '"+format+"' and smp.servicemaps_id = sm.id where coalesce(smp.priority,0) <> -1 order by smp.priority desc");
+                                .prepareStatement("SELECT urlPrefix, competenceArea FROM " /* + DATABASE + "." */ + SMTABLE + " sm left join " + SMPTABLE + " smp on smp.api = '"+api+"' and smp.format = '"+format+"' and smp.servicemaps_id = sm.id where coalesce(smp.priority,0) <> -1 order by smp.priority desc");
                 resultSet = preparedStatement.executeQuery();
                 while (resultSet.next()) {
                     Geometry ca = new WKTReader().read(resultSet.getString("competenceArea"));
@@ -558,8 +558,8 @@ public class MySQLManager {
                 // connection = DriverManager.getConnection("jdbc:mysql://" + IPADDRESS + "/" + DATABASE + "?user=" + USERNAME + "&password=" + PASSWORD + "&useSSL=false&serverTimezone=UTC");
                 connection = ConnectionPool.getConnection(new Object(){}.getClass().getEnclosingMethod().getName());
 
-                preparedStatement = connection.prepareStatement("SELECT uri FROM " + DATABASE + "."
-                                + DEPENTABLE + " WHERE graph=" + "(SELECT id FROM " + DATABASE + "." + GRAPHTABLE + " WHERE uri=?);");
+                preparedStatement = connection.prepareStatement("SELECT uri FROM " /* + DATABASE + "." */
+                                + DEPENTABLE + " WHERE graph=" + "(SELECT id FROM " /* + DATABASE + "." */ + GRAPHTABLE + " WHERE uri=?);");
                 preparedStatement.setString(1, graphUri.toString());
                 resultSet = preparedStatement.executeQuery();
                 while (resultSet.next()) {
@@ -584,7 +584,7 @@ public class MySQLManager {
                 connection = ConnectionPool.getConnection(new Object(){}.getClass().getEnclosingMethod().getName());
 
                 preparedStatement = connection
-                                .prepareStatement("INSERT INTO " + DATABASE + "." + SMTABLE + " VALUES (?, ?, ?, ?)");
+                                .prepareStatement("INSERT INTO " /* + DATABASE + "." */ + SMTABLE + " VALUES (?, ?, ?, ?)");
                 preparedStatement.setString(1, sm.getId());
                 preparedStatement.setString(2, sm.getIp().toString());
                 preparedStatement.setString(3, sm.getCompetenceArea().toText());
@@ -610,7 +610,7 @@ public class MySQLManager {
                 connection = ConnectionPool.getConnection(new Object(){}.getClass().getEnclosingMethod().getName());
 
                 preparedStatement = connection
-                                .prepareStatement("INSERT INTO " + DATABASE + "." + CACHETABLE + "(serviceUri, idServiceMap, insertTime, lastAccessTime) VALUES (?, ?, ?, ?) ON DUPLICATE KEY UPDATE idServiceMap = ?, insertTime = ?, lastAccessTime = ?");
+                                .prepareStatement("INSERT INTO " /* + DATABASE + "." */ + CACHETABLE + "(serviceUri, idServiceMap, insertTime, lastAccessTime) VALUES (?, ?, ?, ?) ON DUPLICATE KEY UPDATE idServiceMap = ?, insertTime = ?, lastAccessTime = ?");
                 preparedStatement.setString(1, uri);
                 preparedStatement.setString(2, id);
                 preparedStatement.setInt(3, (int) (System.currentTimeMillis() / 1000L));
@@ -636,7 +636,7 @@ public class MySQLManager {
                 connection = ConnectionPool.getConnection(new Object(){}.getClass().getEnclosingMethod().getName());
 
                 preparedStatement = connection
-                                .prepareStatement("INSERT INTO " + DATABASE + "." + CACHETABLE + "(serviceUri, idServiceMap, insertTime, lastAccessTime, temporary) VALUES (?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE idServiceMap = ?, insertTime = ?, lastAccessTime = ?");
+                                .prepareStatement("INSERT INTO " /* + DATABASE + "." */ + CACHETABLE + "(serviceUri, idServiceMap, insertTime, lastAccessTime, temporary) VALUES (?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE idServiceMap = ?, insertTime = ?, lastAccessTime = ?");
                 preparedStatement.setString(1, uri);
                 preparedStatement.setString(2, id);
                 preparedStatement.setInt(3, (int) (System.currentTimeMillis() / 1000L));
@@ -665,8 +665,8 @@ public class MySQLManager {
                 connection = ConnectionPool.getConnection(new Object(){}.getClass().getEnclosingMethod().getName());
 
                 preparedStatement = connection.prepareStatement(
-                                "SELECT COUNT(*) AS c FROM " + DATABASE + "." + SMGRAPHTABLE + " WHERE serviceMap=? AND graph="
-                                                + "(SELECT id FROM " + DATABASE + "." + GRAPHTABLE + " WHERE uri=?)");
+                                "SELECT COUNT(*) AS c FROM " /* + DATABASE + "." */ + SMGRAPHTABLE + " WHERE serviceMap=? AND graph="
+                                                + "(SELECT id FROM " /* + DATABASE + "." */ + GRAPHTABLE + " WHERE uri=?)");
                 preparedStatement.setString(1, smId);
                 preparedStatement.setString(2, uri.toString());
                 resultSet = preparedStatement.executeQuery();
@@ -674,23 +674,23 @@ public class MySQLManager {
                 if (Integer.parseInt(resultSet.getString("c")) == 0) {
                         // It checks if the graph already exists in the graph table
                         preparedStatement = connection
-                                        .prepareStatement("SELECT id FROM " + DATABASE + "." + GRAPHTABLE + " WHERE uri=?");
+                                        .prepareStatement("SELECT id FROM " /* + DATABASE + "." */ + GRAPHTABLE + " WHERE uri=?");
                         preparedStatement.setString(1, uri.toString());
                         resultSet = preparedStatement.executeQuery();
                         if (!resultSet.next()) {
                                 preparedStatement = connection.prepareStatement(
-                                                "INSERT INTO " + DATABASE + "." + GRAPHTABLE + " VALUES (default, ?, ?, default)");
+                                                "INSERT INTO " /* + DATABASE + "." */ + GRAPHTABLE + " VALUES (default, ?, ?, default)");
                                 preparedStatement.setString(1, uri.toString());
                                 preparedStatement.setString(2, null);
                                 preparedStatement.executeUpdate();
 
-                                preparedStatement = connection.prepareStatement("INSERT INTO " + DATABASE + "." + SMGRAPHTABLE
+                                preparedStatement = connection.prepareStatement("INSERT INTO " /* + DATABASE + "." */ + SMGRAPHTABLE
                                                 + " VALUES (default, ?, (SELECT LAST_INSERT_ID()))");
                                 preparedStatement.setString(1, smId);
                                 preparedStatement.executeUpdate();
                         } else {
                                 preparedStatement = connection.prepareStatement(
-                                                "INSERT INTO " + DATABASE + "." + SMGRAPHTABLE + " VALUES (default, ?, ?)");
+                                                "INSERT INTO " /* + DATABASE + "." */ + SMGRAPHTABLE + " VALUES (default, ?, ?)");
                                 preparedStatement.setString(1, smId);
                                 preparedStatement.setString(2, resultSet.getString("id"));
                                 preparedStatement.executeUpdate();
@@ -713,7 +713,7 @@ public class MySQLManager {
                 connection = ConnectionPool.getConnection(new Object(){}.getClass().getEnclosingMethod().getName());
 
                 preparedStatement = connection
-                                .prepareStatement("UPDATE " + DATABASE + "." + GRAPHTABLE + " SET boundingBox=? WHERE uri=?");
+                                .prepareStatement("UPDATE " /* + DATABASE + "." */ + GRAPHTABLE + " SET boundingBox=? WHERE uri=?");
                 preparedStatement.setString(1, wkt.toText());
                 preparedStatement.setString(2, uri.toString());
                 preparedStatement.executeUpdate();
@@ -734,12 +734,12 @@ public class MySQLManager {
                 connection = ConnectionPool.getConnection(new Object(){}.getClass().getEnclosingMethod().getName());
 
                 preparedStatement = connection
-                                .prepareStatement("DELETE FROM " + DATABASE + "." + SMGRAPHTABLE + " WHERE serviceMap=? ;");
+                                .prepareStatement("DELETE FROM " /* + DATABASE + "." */ + SMGRAPHTABLE + " WHERE serviceMap=? ;");
                 preparedStatement.setString(1, smId);
                 preparedStatement.executeUpdate();
 
                 preparedStatement = connection
-                                .prepareStatement("DELETE FROM " + DATABASE + "." + SMTABLE + " WHERE id=? ;");
+                                .prepareStatement("DELETE FROM " /* + DATABASE + "." */ + SMTABLE + " WHERE id=? ;");
                 preparedStatement.setString(1, smId);
                 preparedStatement.executeUpdate();
             } catch (Exception e) {
@@ -759,8 +759,8 @@ public class MySQLManager {
                 connection = ConnectionPool.getConnection(new Object(){}.getClass().getEnclosingMethod().getName());
 
                 preparedStatement = connection
-                                .prepareStatement("DELETE FROM " + DATABASE + "." + SMGRAPHTABLE + " WHERE serviceMap=? AND graph="
-                                                + "(SELECT id FROM " + DATABASE + "." + GRAPHTABLE + " WHERE uri=?);");
+                                .prepareStatement("DELETE FROM " /* + DATABASE + "." */ + SMGRAPHTABLE + " WHERE serviceMap=? AND graph="
+                                                + "(SELECT id FROM " /* + DATABASE + "." */ + GRAPHTABLE + " WHERE uri=?);");
                 preparedStatement.setString(1, smId);
                 preparedStatement.setString(2, uri.toString());
                 preparedStatement.executeUpdate();
@@ -781,19 +781,19 @@ public class MySQLManager {
                 connection = ConnectionPool.getConnection(new Object(){}.getClass().getEnclosingMethod().getName());
 
                 preparedStatement = connection
-                                .prepareStatement("INSERT INTO " + DATABASE + "." + SMTABLE + " VALUES (?, ?)");
+                                .prepareStatement("INSERT INTO " /* + DATABASE + "." */ + SMTABLE + " VALUES (?, ?)");
                 preparedStatement.setString(1, newId);
                 preparedStatement.setString(2, ip);
                 preparedStatement.executeUpdate();
 
                 preparedStatement = connection.prepareStatement(
-                                "UPDATE " + DATABASE + "." + SMGRAPHTABLE + " SET serviceMap=? WHERE serviceMap=?");
+                                "UPDATE " /* + DATABASE + "." */ + SMGRAPHTABLE + " SET serviceMap=? WHERE serviceMap=?");
                 preparedStatement.setString(1, newId);
                 preparedStatement.setString(2, actualSmId);
                 preparedStatement.executeUpdate();
 
                 preparedStatement = connection
-                                .prepareStatement("DELETE FROM " + DATABASE + "." + SMTABLE + " WHERE id=? ;");
+                                .prepareStatement("DELETE FROM " /* + DATABASE + "." */ + SMTABLE + " WHERE id=? ;");
                 preparedStatement.setString(1, actualSmId);
                 preparedStatement.executeUpdate();
             } catch (Exception e) {
