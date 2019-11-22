@@ -658,7 +658,7 @@ public class ApiV1Resource {
               else {  r = targetServiceMap.request().header("X-Forwarded-For", httpRequestForwardedFor).header("Referer", requestContext.getHeader("Referer")).header("Authorization", authorization).get(); }
           }
           String code = String.valueOf(r.getStatus());
-          String response = r.readEntity(String.class);
+          String response = r.readEntity(String.class).replaceAll("[\r]", "").replaceAll("[\n]", "");
           responseCodes.add(code);
           responses.add(response);
           if (r.getStatus() != 400) {
