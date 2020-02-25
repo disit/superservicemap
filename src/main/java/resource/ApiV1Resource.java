@@ -57,6 +57,7 @@ import java.net.URI;
 import java.net.URL;
 import java.net.URLConnection;
 import java.security.Principal;
+import java.text.SimpleDateFormat;
 import java.util.Arrays;
 import java.util.Calendar;
 import java.util.Collections;
@@ -201,7 +202,8 @@ public class ApiV1Resource {
             return Response.ok(new JSONObject(serviceMapResponse).toString(4), MediaType.APPLICATION_JSON).header("Access-Control-Allow-Origin", "*").status(r.getStatus()).build();
           }
         } catch (Exception e) {
-          e.printStackTrace();
+            System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+            e.printStackTrace();
           return Response.status(500).build();
         }
       } else {
@@ -270,7 +272,8 @@ public class ApiV1Resource {
               String plainResponse = PlainResponsesIterator.next();
               return Response.ok(new JSONObject(plainResponse).toString(4), MediaType.APPLICATION_JSON).header("Access-Control-Allow-Origin", "*").status(Integer.parseInt(responseCode)).build();
             } catch (Exception e) {
-              e.printStackTrace();
+                System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+                e.printStackTrace();
               return Response.status(500).build();
             }
           } else {
@@ -305,7 +308,8 @@ public class ApiV1Resource {
               allFeatures.add(busStop);
             }
           } catch (Exception e) {
-            e.printStackTrace();
+            System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+              e.printStackTrace();
           }
         }
         uris.clear();
@@ -320,7 +324,8 @@ public class ApiV1Resource {
               allFeatures.add(sensorSite);
             }
           } catch (Exception e) {
-            e.printStackTrace();
+            System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+              e.printStackTrace();
           }
         }
         uris.clear();
@@ -335,7 +340,8 @@ public class ApiV1Resource {
               allFeatures.add(service);
             }
           } catch (Exception e) {
-            e.printStackTrace();
+            System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+              e.printStackTrace();
           }
         }
         uris.clear();
@@ -350,7 +356,8 @@ public class ApiV1Resource {
               allFeatures.add(generic);
             }
           } catch (Exception e) {
-            e.printStackTrace();
+            System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+              e.printStackTrace();
           }
         }
         uris.clear();
@@ -361,7 +368,8 @@ public class ApiV1Resource {
             try {
               return (int) Math.round(Math.signum(f1.dist - f2.dist));
             } catch (Exception e) {
-              e.printStackTrace();
+              System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+                e.printStackTrace();
               return 0;
             }
           }
@@ -402,7 +410,8 @@ public class ApiV1Resource {
             maxResultNumeric = BusStopsFeaturedUniques.size() + SensorSitesFeaturedUniques.size() + ServicesFeaturedUniques.size() + GenericFeaturedUniques.size();
           }
         } catch (Exception e) {
-          e.printStackTrace();
+          System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+            e.printStackTrace();
         }
 
                     // ( reserve 20% to sensors, 30% to bus, 50% to service, redistributing vacancies )
@@ -479,7 +488,8 @@ public class ApiV1Resource {
 
           }
         } catch (Exception e) {
-          e.printStackTrace();
+          System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+            e.printStackTrace();
           int howMany = (int) Math.round(maxResultNumeric / 3);
           howManySensors = howMany;
           howManyBusStops = howMany;
@@ -499,7 +509,8 @@ public class ApiV1Resource {
               feature.obj.put("id", bsid);
               howManyBusStops--;
             } catch (Exception e) {
-              e.printStackTrace();
+              System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+                e.printStackTrace();
             }
           } else if (feature instanceof SensorSite && howManySensors > 0) {
             try {
@@ -508,7 +519,8 @@ public class ApiV1Resource {
               feature.obj.put("id", ssid);
               howManySensors--;
             } catch (Exception e) {
-              e.printStackTrace();
+              System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+                e.printStackTrace();
             }
           } else if (feature instanceof Service && howManyServices > 0) {
             try {
@@ -517,7 +529,8 @@ public class ApiV1Resource {
               feature.obj.put("id", sid);
               howManyServices--;
             } catch (Exception e) {
-              e.printStackTrace();
+              System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+                e.printStackTrace();
             }
           } else if (feature instanceof Generic && howManyGeneric > 0) {
             try {
@@ -526,7 +539,8 @@ public class ApiV1Resource {
               feature.obj.put("id", gid);
               howManyGeneric--;
             } catch (Exception e) {
-              e.printStackTrace();
+              System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+                e.printStackTrace();
             }
           }
         }
@@ -538,7 +552,8 @@ public class ApiV1Resource {
             initialJSONresponse.remove("Services");
           }
         } catch (Exception e) {
-          e.printStackTrace();
+          System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+            e.printStackTrace();
         }
 
         try {
@@ -547,7 +562,8 @@ public class ApiV1Resource {
             initialJSONresponse.remove("SensorSites");
           }
         } catch (Exception e) {
-          e.printStackTrace();
+          System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+            e.printStackTrace();
         }
 
         try {
@@ -556,7 +572,8 @@ public class ApiV1Resource {
             initialJSONresponse.remove("BusStops");
           }
         } catch (Exception e) {
-          e.printStackTrace();
+          System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+            e.printStackTrace();
         }
 
                     // Return the response object
@@ -636,7 +653,8 @@ public class ApiV1Resource {
           }
           return Response.ok("html".equals(format) ? goThere(store.getUrlPrefixFromSMid(idOfSMwithUri), r.readEntity(String.class)) : new JSONObject(r.readEntity(String.class)).toString(4), "html".equals(format) ? MediaType.TEXT_HTML : MediaType.APPLICATION_JSON).header("Access-Control-Allow-Origin", "*").status(r.getStatus()).build();
         } catch (Exception e) {
-          e.printStackTrace();
+          System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+            e.printStackTrace();
         }
       }
 
@@ -675,13 +693,15 @@ public class ApiV1Resource {
           return Response.ok("html".equals(format) ? goThere(store.getUrlPrefixFromSMid(sMs.get(0).getId()), plainResponse) : new JSONObject(plainResponse).toString(4), "html".equals(format) ? MediaType.TEXT_HTML : MediaType.APPLICATION_JSON).header("Access-Control-Allow-Origin", "*").status(Integer.parseInt(responseCode)).build();
         }
       } catch (Exception e) {
-        e.printStackTrace();
+        System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+          e.printStackTrace();
       }
 
       return Response.status(500).build();
 
     } catch (Exception e) {
-      e.printStackTrace();
+      System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+        e.printStackTrace();
       return Response.status(500).build();
 
     }
@@ -750,7 +770,8 @@ public class ApiV1Resource {
           String plainResponse = PlainResponsesIterator.next();
           return Response.ok(new JSONObject(plainResponse).toString(4), MediaType.APPLICATION_JSON).header("Access-Control-Allow-Origin", "*").status(Integer.parseInt(responseCode)).build();
         } catch (Exception e) {
-          e.printStackTrace();
+          System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+            e.printStackTrace();
           return Response.status(500).build();
         }
       } else {
@@ -760,7 +781,8 @@ public class ApiV1Resource {
       try {
         return Response.ok(new JSONObject(addresses.get(0)).toString(4), MediaType.APPLICATION_JSON).header("Access-Control-Allow-Origin", "*").build();
       } catch (Exception e) {
-        e.printStackTrace();
+        System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+          e.printStackTrace();
         return Response.status(500).build();
       }
     } else { // If more addresses could be found, sort them by distance as it is done in the /real/ service maps, remove duplicates, and return as many as it is specified in the maxResults
@@ -798,7 +820,8 @@ public class ApiV1Resource {
           }
 
         } catch (Exception e) {
-          e.printStackTrace();
+          System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+            e.printStackTrace();
         }
       }
       class AddressComparator implements Comparator<Address> {
@@ -808,7 +831,8 @@ public class ApiV1Resource {
           try {
             return (int) Math.round(Math.signum(a1.dist - a2.dist));
           } catch (Exception e) {
-            e.printStackTrace();
+            System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+              e.printStackTrace();
             return 0;
           }
 
@@ -827,7 +851,8 @@ public class ApiV1Resource {
             cleanedAddresses.add(sortedAddresses.get(i));
           }
         } catch (Exception e) {
-          e.printStackTrace();
+          System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+            e.printStackTrace();
         }
       }
       sortedAddresses = cleanedAddresses;
@@ -838,7 +863,8 @@ public class ApiV1Resource {
           maxResultNumeric = Integer.parseInt(maxResults);
         }
       } catch (Exception e) {
-        e.printStackTrace();
+        System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+          e.printStackTrace();
       }
 
       JSONObject featCollResp = new JSONObject();
@@ -852,7 +878,8 @@ public class ApiV1Resource {
           try {
             return Response.ok(sortedAddresses.get(0).obj.toString(4), MediaType.APPLICATION_JSON).header("Access-Control-Allow-Origin", "*").build();
           } catch (Exception e) {
-            e.printStackTrace();
+            System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+              e.printStackTrace();
             return Response.status(500).build();
           }
         } else {
@@ -861,7 +888,8 @@ public class ApiV1Resource {
             featsResp.put(sortedAddresses.get(0).obj);
             return Response.ok(featCollResp.toString(4), MediaType.APPLICATION_JSON).header("Access-Control-Allow-Origin", "*").build();
           } catch (Exception e) {
-            e.printStackTrace();
+            System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+              e.printStackTrace();
             return Response.status(500).build();
           }
         }
@@ -872,7 +900,8 @@ public class ApiV1Resource {
             try {
               resp.put(sortedAddresses.get(i).obj);
             } catch (Exception e) {
-              e.printStackTrace();
+              System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+                e.printStackTrace();
             }
           }
           return Response.ok(resp.toString(4), MediaType.APPLICATION_JSON).header("Access-Control-Allow-Origin", "*").build();
@@ -882,7 +911,8 @@ public class ApiV1Resource {
               sortedAddresses.get(i).obj.getJSONObject("properties").put("id", i + 1);
               featsResp.put(sortedAddresses.get(i).obj);
             } catch (Exception e) {
-              e.printStackTrace();
+              System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+                e.printStackTrace();
             }
           }
           return Response.ok(featCollResp.toString(4), MediaType.APPLICATION_JSON).header("Access-Control-Allow-Origin", "*").build();
@@ -948,7 +978,8 @@ public class ApiV1Resource {
           String plainResponse = PlainResponsesIterator.next();
           return Response.ok(new JSONObject(plainResponse).toString(4), MediaType.APPLICATION_JSON).header("Access-Control-Allow-Origin", "*").status(Integer.parseInt(responseCode)).build();
         } catch (Exception e) {
-          e.printStackTrace();
+          System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+            e.printStackTrace();
           return Response.status(500).build();
         }
       } else {
@@ -961,7 +992,8 @@ public class ApiV1Resource {
       try {
         return Response.ok(new JSONObject(collections.get(0)).toString(4), MediaType.APPLICATION_JSON).header("Access-Control-Allow-Origin", "*").build();
       } catch (Exception e) {
-        e.printStackTrace();
+        System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+          e.printStackTrace();
         return Response.status(500).build();
       }
     }
@@ -976,7 +1008,8 @@ public class ApiV1Resource {
           events.add((JSONObject) jEvents.get(i));
         }
       } catch (Exception e) {
-        e.printStackTrace();
+        System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+          e.printStackTrace();
       }
 
     }
@@ -988,7 +1021,8 @@ public class ApiV1Resource {
         try {
           return obj1.getJSONObject("properties").getString("startDate").compareTo(obj2.getJSONObject("properties").getString("startDate"));
         } catch (Exception e) {
-          e.printStackTrace();
+          System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+            e.printStackTrace();
           return 0;
         }
       }
@@ -1005,7 +1039,8 @@ public class ApiV1Resource {
           cleanedEvents.add(events.get(i));
         }
       } catch (Exception e) {
-        e.printStackTrace();
+        System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+          e.printStackTrace();
       }
     }
     events = cleanedEvents;
@@ -1020,7 +1055,8 @@ public class ApiV1Resource {
         maxResultNumeric = events.size();
       }
     } catch (Exception e) {
-      e.printStackTrace();
+      System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+        e.printStackTrace();
     }
 
             // Initialize response
@@ -1039,7 +1075,8 @@ public class ApiV1Resource {
         events.get(i).put("id", i + 1);
         features.put(events.get(i));
       } catch (Exception e) {
-        e.printStackTrace();
+        System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+          e.printStackTrace();
       }
     }
 
@@ -1098,7 +1135,8 @@ public class ApiV1Resource {
           String plainResponse = PlainResponsesIterator.next();
           return Response.ok(new JSONObject(plainResponse).toString(4), MediaType.APPLICATION_JSON).header("Access-Control-Allow-Origin", "*").status(Integer.parseInt(responseCode)).build();
         } catch (Exception e) {
-          e.printStackTrace();
+          System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+            e.printStackTrace();
           return Response.status(500).build();
         }
       } else {
@@ -1111,7 +1149,8 @@ public class ApiV1Resource {
       try {
         return Response.ok(new JSONObject(collections.get(0)).toString(4), MediaType.APPLICATION_JSON).header("Access-Control-Allow-Origin", "*").build();
       } catch (Exception e) {
-        e.printStackTrace();
+        System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+          e.printStackTrace();
         return Response.status(500).build();
       }
     }
@@ -1126,7 +1165,8 @@ public class ApiV1Resource {
           agencies.add((JSONObject) jAgencies.get(i));
         }
       } catch (Exception e) {
-        e.printStackTrace();
+        System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+          e.printStackTrace();
       }
     }
 
@@ -1138,7 +1178,8 @@ public class ApiV1Resource {
         try {
           return obj1.getString("name").compareTo(obj2.getString("name"));
         } catch (Exception e) {
-          e.printStackTrace();
+          System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+            e.printStackTrace();
           return 0;
         }
       }
@@ -1155,7 +1196,8 @@ public class ApiV1Resource {
           cleanedAgencies.add(agencies.get(i));
         }
       } catch (Exception e) {
-        e.printStackTrace();
+        System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+          e.printStackTrace();
       }
     }
     agencies = cleanedAgencies;
@@ -1225,7 +1267,8 @@ public class ApiV1Resource {
           String plainResponse = PlainResponsesIterator.next();
           return Response.ok(new JSONObject(plainResponse).toString(4), MediaType.APPLICATION_JSON).header("Access-Control-Allow-Origin", "*").status(Integer.parseInt(responseCode)).build();
         } catch (Exception e) {
-          e.printStackTrace();
+          System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+            e.printStackTrace();
           return Response.status(500).build();
         }
       } else {
@@ -1238,7 +1281,8 @@ public class ApiV1Resource {
       try {
         return Response.ok(new JSONObject(collections.get(0)).toString(4), MediaType.APPLICATION_JSON).header("Access-Control-Allow-Origin", "*").build();
       } catch (Exception e) {
-        e.printStackTrace();
+        System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+          e.printStackTrace();
         return Response.status(500).build();
       }
     }
@@ -1253,7 +1297,8 @@ public class ApiV1Resource {
           lines.add((JSONObject) jLines.get(i));
         }
       } catch (Exception e) {
-        e.printStackTrace();
+        System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+          e.printStackTrace();
       }
     }
 
@@ -1266,7 +1311,8 @@ public class ApiV1Resource {
           cleanedLines.add(lines.get(i));
         }
       } catch (Exception e) {
-        e.printStackTrace();
+        System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+          e.printStackTrace();
       }
     }
     lines = cleanedLines;
@@ -1279,7 +1325,8 @@ public class ApiV1Resource {
         try {
           return Integer.parseInt(obj1.getString("shortName")) - Integer.parseInt(obj2.getString("shortName"));
         } catch (Exception e) {
-          e.printStackTrace();
+          System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+            e.printStackTrace();
           return 0;
         }
       }
@@ -1358,7 +1405,8 @@ public class ApiV1Resource {
           String plainResponse = PlainResponsesIterator.next();
           return Response.ok(new JSONObject(plainResponse).toString(4), MediaType.APPLICATION_JSON).header("Access-Control-Allow-Origin", "*").status(Integer.parseInt(responseCode)).build();
         } catch (Exception e) {
-          e.printStackTrace();
+          System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+            e.printStackTrace();
           return Response.status(500).build();
         }
       } else {
@@ -1371,7 +1419,8 @@ public class ApiV1Resource {
       try {
         return Response.ok(new JSONObject(collections.get(0)).toString(4), MediaType.APPLICATION_JSON).header("Access-Control-Allow-Origin", "*").build();
       } catch (Exception e) {
-        e.printStackTrace();
+        System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+          e.printStackTrace();
         return Response.status(500).build();
       }
     }
@@ -1386,7 +1435,8 @@ public class ApiV1Resource {
           routes.add((JSONObject) jRoutes.get(i));
         }
       } catch (Exception e) {
-        e.printStackTrace();
+        System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+          e.printStackTrace();
       }
     }
 
@@ -1402,7 +1452,8 @@ public class ApiV1Resource {
             return obj1.getString("lastBusStop").compareTo(obj2.getString("lastBusStop"));
           }
         } catch (Exception e) {
-          e.printStackTrace();
+          System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+            e.printStackTrace();
           return 0;
         }
       }
@@ -1419,7 +1470,8 @@ public class ApiV1Resource {
           cleanedRoutes.add(routes.get(i));
         }
       } catch (Exception e) {
-        e.printStackTrace();
+        System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+          e.printStackTrace();
       }
     }
     routes = cleanedRoutes;
@@ -1491,7 +1543,8 @@ public class ApiV1Resource {
           String plainResponse = PlainResponsesIterator.next();
           return Response.ok(new JSONObject(plainResponse).toString(4), MediaType.APPLICATION_JSON).header("Access-Control-Allow-Origin", "*").status(Integer.parseInt(responseCode)).build();
         } catch (Exception e) {
-          e.printStackTrace();
+          System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+            e.printStackTrace();
           return Response.status(500).build();
         }
       } else {
@@ -1504,7 +1557,8 @@ public class ApiV1Resource {
       try {
         return Response.ok(new JSONObject(collections.get(0)).toString(4), MediaType.APPLICATION_JSON).header("Access-Control-Allow-Origin", "*").build();
       } catch (Exception e) {
-        e.printStackTrace();
+        System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+          e.printStackTrace();
         return Response.status(500).build();
       }
     }
@@ -1529,7 +1583,8 @@ public class ApiV1Resource {
           stops.add((JSONObject) jStops.get(i));
         }
       } catch (Exception e) {
-        e.printStackTrace();
+        System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+          e.printStackTrace();
       }
     }
 
@@ -1541,7 +1596,8 @@ public class ApiV1Resource {
         try {
           return (int) Math.round(Math.signum(Integer.parseInt(obj1.getString("id")) - Integer.parseInt(obj2.getString("id"))));
         } catch (Exception e) {
-          e.printStackTrace();
+          System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+            e.printStackTrace();
           return 0;
         }
       }
@@ -1558,7 +1614,8 @@ public class ApiV1Resource {
           cleanedStops.add(stops.get(i));
         }
       } catch (Exception e) {
-        e.printStackTrace();
+        System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+          e.printStackTrace();
       }
     }
     stops = cleanedStops;
@@ -1570,7 +1627,8 @@ public class ApiV1Resource {
         Iterator i = routes.iterator();
         response.put("Route", new JSONObject(i.next().toString()));
       } catch (Exception e) {
-        e.printStackTrace();
+        System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+          e.printStackTrace();
       }
     } else {
       JSONArray jRoutes = new JSONArray();
@@ -1579,7 +1637,8 @@ public class ApiV1Resource {
         try {
           jRoutes.put(new JSONObject(i.next().toString()));
         } catch (Exception e) {
-          e.printStackTrace();
+          System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+            e.printStackTrace();
         }
       }
       response.put("Route", jRoutes);
@@ -1597,7 +1656,8 @@ public class ApiV1Resource {
         stops.get(i).put("id", i + 1);
         features.put(stops.get(i));
       } catch (Exception e) {
-        e.printStackTrace();
+        System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+          e.printStackTrace();
       }
     }
 
@@ -1663,7 +1723,8 @@ public class ApiV1Resource {
           String plainResponse = PlainResponsesIterator.next();
           return Response.ok(new JSONObject(plainResponse).toString(4), MediaType.APPLICATION_JSON).header("Access-Control-Allow-Origin", "*").status(Integer.parseInt(responseCode)).build();
         } catch (Exception e) {
-          e.printStackTrace();
+          System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+            e.printStackTrace();
           return Response.status(500).build();
         }
       } else {
@@ -1676,7 +1737,8 @@ public class ApiV1Resource {
       try {
         return Response.ok(new JSONObject(collections.get(0)).toString(4), MediaType.APPLICATION_JSON).header("Access-Control-Allow-Origin", "*").build();
       } catch (Exception e) {
-        e.printStackTrace();
+        System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+          e.printStackTrace();
         Response.status(500).build();
       }
     }
@@ -1691,7 +1753,8 @@ public class ApiV1Resource {
           routes.add((JSONObject) jRoutes.get(i));
         }
       } catch (Exception e) {
-        e.printStackTrace();
+        System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+          e.printStackTrace();
       }
     }
 
@@ -1706,7 +1769,8 @@ public class ApiV1Resource {
             return obj1.getString("direction").compareTo(obj2.getString("direction"));
           }
         } catch (Exception e) {
-          e.printStackTrace();
+          System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+            e.printStackTrace();
           return 0;
         }
       }
@@ -1723,7 +1787,8 @@ public class ApiV1Resource {
           cleanedRoutes.add(routes.get(i));
         }
       } catch (Exception e) {
-        e.printStackTrace();
+        System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+          e.printStackTrace();
       }
     }
     routes = cleanedRoutes;
@@ -1738,7 +1803,8 @@ public class ApiV1Resource {
         maxResultNumeric = routes.size();
       }
     } catch (Exception e) {
-      e.printStackTrace();
+      System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+        e.printStackTrace();
     }
 
             // Initialize response
@@ -1757,7 +1823,8 @@ public class ApiV1Resource {
         routes.get(i).put("id", i + 1);
         features.put(routes.get(i));
       } catch (Exception e) {
-        e.printStackTrace();
+        System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+          e.printStackTrace();
       }
     }
 
@@ -1807,7 +1874,8 @@ public class ApiV1Resource {
           return Response.ok(new JSONObject(response).toString(4), MediaType.APPLICATION_JSON).status(r.getStatus()).header("Access-Control-Allow-Origin", "*").build();
         }
       } catch (Exception e) {
-        e.printStackTrace();
+        System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+          e.printStackTrace();
         return Response.status(500).build();
       }
     }
@@ -1850,7 +1918,8 @@ public class ApiV1Resource {
           String plainResponse = PlainResponsesIterator.next();
           return Response.ok(new JSONObject(plainResponse).toString(4), MediaType.APPLICATION_JSON).header("Access-Control-Allow-Origin", "*").status(Integer.parseInt(responseCode)).build();
         } catch (Exception e) {
-          e.printStackTrace();
+          System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+            e.printStackTrace();
           return Response.status(500).build();
         }
       } else {
@@ -1863,7 +1932,8 @@ public class ApiV1Resource {
       try {
         return Response.ok(new JSONObject(collections.get(0)).toString(4), MediaType.APPLICATION_JSON).header("Access-Control-Allow-Origin", "*").build();
       } catch (Exception e) {
-        e.printStackTrace();
+        System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+          e.printStackTrace();
         return Response.status(500).build();
       }
     }
@@ -1878,7 +1948,8 @@ public class ApiV1Resource {
           busPositions.add((JSONObject) jBusPositions.get(i));
         }
       } catch (Exception e) {
-        e.printStackTrace();
+        System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+          e.printStackTrace();
       }
     }
 
@@ -1890,7 +1961,8 @@ public class ApiV1Resource {
         try {
           return (int) Math.round(Math.signum(Integer.parseInt(obj1.getString("id")) - Integer.parseInt(obj2.getString("id"))));
         } catch (Exception e) {
-          e.printStackTrace();
+          System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+            e.printStackTrace();
           return 0;
         }
       }
@@ -1907,7 +1979,8 @@ public class ApiV1Resource {
           cleanedBusPositions.add(busPositions.get(i));
         }
       } catch (Exception e) {
-        e.printStackTrace();
+        System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+          e.printStackTrace();
       }
     }
     busPositions = cleanedBusPositions;
@@ -1924,7 +1997,8 @@ public class ApiV1Resource {
         busPositions.get(i).put("id", i + 1);
         jFeatures.put(busPositions.get(i));
       } catch (Exception e) {
-        e.printStackTrace();
+        System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+          e.printStackTrace();
       }
     }
 
@@ -2064,7 +2138,8 @@ public class ApiV1Resource {
             break;
           }
         } catch (Exception e) {
-          e.printStackTrace();
+          System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+            e.printStackTrace();
         }
       }
     } else {
@@ -2087,7 +2162,8 @@ public class ApiV1Resource {
         responses.add(r.readEntity(String.class));
         responseCodes.add(String.valueOf(r.getStatus()));
       } catch (Exception e) {
-        e.printStackTrace();
+        System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+          e.printStackTrace();
       }
     }
 
@@ -2099,7 +2175,8 @@ public class ApiV1Resource {
         String plainResponse = PlainResponsesIterator.next();
         return Response.ok(plainResponse, MediaType.TEXT_PLAIN).header("Access-Control-Allow-Origin", "*").status(Integer.parseInt(responseCode)).build();
       } catch (Exception e) {
-        e.printStackTrace();
+        System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+          e.printStackTrace();
         return Response.status(500).build();
       }
     } else {
@@ -2163,7 +2240,8 @@ public class ApiV1Resource {
           String plainResponse = PlainResponsesIterator.next();
           return Response.ok(new JSONObject(plainResponse).toString(4), MediaType.APPLICATION_JSON).header("Access-Control-Allow-Origin", "*").status(Integer.parseInt(responseCode)).build();
         } catch (Exception e) {
-          e.printStackTrace();
+          System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+            e.printStackTrace();
           return Response.status(500).build();
         }
       } else {
@@ -2190,7 +2268,8 @@ public class ApiV1Resource {
           JSONObject obj2 = new JSONObject(str2);
           return obj2.getString("timestamp").compareTo(obj1.getString("timestamp"));
         } catch (Exception e) {
-          e.printStackTrace();
+          System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+            e.printStackTrace();
           return 0;
         }
       }
@@ -2204,7 +2283,8 @@ public class ApiV1Resource {
         JSONObject lastPhoto = new JSONObject(sortedLastPhotos.get(ctr));
         jLastPhotos.put(lastPhoto);
       } catch (Exception e) {
-        e.printStackTrace();
+        System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+          e.printStackTrace();
       }
       ctr++;
     }
@@ -2217,7 +2297,8 @@ public class ApiV1Resource {
         JSONObject lastComment = new JSONObject(sortedLastComments.get(ctr));
         jLastComments.put(lastComment);
       } catch (Exception e) {
-        e.printStackTrace();
+        System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+          e.printStackTrace();
       }
       ctr++;
     }
@@ -2230,7 +2311,8 @@ public class ApiV1Resource {
         JSONObject lastStar = new JSONObject(sortedLastStars.get(ctr));
         jLastStars.put(lastStar);
       } catch (Exception e) {
-        e.printStackTrace();
+        System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+          e.printStackTrace();
       }
       ctr++;
     }
@@ -2297,7 +2379,8 @@ public class ApiV1Resource {
             }
           }
         } catch (Exception e) {
-          e.printStackTrace();
+          System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+            e.printStackTrace();
         }
 
       }
@@ -2307,12 +2390,14 @@ public class ApiV1Resource {
           Iterator allCodesIterator = allCodes.iterator();
           return Response.ok("html".equals(format) ? goThere(competentServiceMaps.get(0), allResponsesIterator.next().toString()) : new JSONObject(allResponsesIterator.next().toString()).toString(4), "html".equals(format) ? MediaType.TEXT_HTML : MediaType.APPLICATION_JSON).status(Integer.parseInt(allCodesIterator.next().toString())).build();
         } catch (Exception e) {
-          e.printStackTrace();
+          System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+            e.printStackTrace();
         }
       }
       return Response.status(500).build();
     } catch (Exception e) {
-      e.printStackTrace();
+      System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+        e.printStackTrace();
       return Response.status(500).build();
     }
 
@@ -2363,24 +2448,37 @@ public class ApiV1Resource {
             serverUrl = serverUrl.substring(0, serverUrl.indexOf("?"));
         }
         serverUrl = "https://www.disit.org/superservicemap/api/v1/" + organization + "/wfs";
-        String selection = "36.619987291;6.7499552751;47.1153931748;18.4802470232";
-        String timezoneSuffix = "+01:00";
-        if ("antwerp".equals(organization)) {
-            selection = "51.103370011851325;4.163390527343722;51.3947705664635;4.634429345703097";
-        }
-        if ("helsinki".equals(organization)) {
-            selection = "60.139889621242524;24.835881147460896;60.20239233681951;25.013722333984333";
-            timezoneSuffix = "+02:00";
-        }
-        if (requestContext.getParameter("selection") != null) {
-          selection = requestContext.getParameter("selection");
-        }
-        double lowerCornerLong = Double.parseDouble(selection.split(";")[1]);
-        double lowerCornerLat = Double.parseDouble(selection.split(";")[0]);
-        double upperCornerLong = Double.parseDouble(selection.split(";")[3]);
-        double upperCornerLat = Double.parseDouble(selection.split(";")[2]);
         String serverVersion = "2.0.0";
         try {
+            
+            String selection = null;
+            String timezoneSuffix = null;
+            MySQLManager store = new MySQLManager();
+            selection = store.getOrgBbox(organization);
+            timezoneSuffix = store.getOrgTZ(organization);
+            if(selection == null) throw new Exception("Bounding box not resolved for organization: "+organization);
+            if(timezoneSuffix == null) throw new Exception("Time zone not resolved for organization: "+organization);
+
+            /*
+            String selection = "36.619987291;6.7499552751;47.1153931748;18.4802470232";
+            String timezoneSuffix = "+01:00";
+            if ("antwerp".equals(organization)) {
+                selection = "51.103370011851325;4.163390527343722;51.3947705664635;4.634429345703097";
+            }
+            if ("helsinki".equals(organization)) {
+                selection = "60.139889621242524;24.835881147460896;60.20239233681951;25.013722333984333";
+                timezoneSuffix = "+02:00";
+            }
+            */
+            
+            if (requestContext.getParameter("selection") != null) {
+              selection = requestContext.getParameter("selection");
+            }
+            double lowerCornerLong = Double.parseDouble(selection.split(";")[1]);
+            double lowerCornerLat = Double.parseDouble(selection.split(";")[0]);
+            double upperCornerLong = Double.parseDouble(selection.split(";")[3]);
+            double upperCornerLat = Double.parseDouble(selection.split(";")[2]);
+        
             javax.xml.parsers.DocumentBuilderFactory factory = javax.xml.parsers.DocumentBuilderFactory.newInstance();
             javax.xml.parsers.DocumentBuilder builder = factory.newDocumentBuilder();
             org.w3c.dom.Document document = builder.parse(new InputSource(new StringReader(requestXml)));
@@ -2793,6 +2891,8 @@ public class ApiV1Resource {
         String pPropertyName = propertyname;
         if (pPropertyName == null) pPropertyName = PropertyName;
         if (pPropertyName == null) pPropertyName = PROPERTYNAME;
+        
+        /*
         String selection = "36.619987291;6.7499552751;47.1153931748;18.4802470232";
         String timezoneSuffix = "+01:00";
         if ("antwerp".equals(organization)) selection = "51.103370011851325;4.163390527343722;51.3947705664635;4.634429345703097";
@@ -2800,6 +2900,15 @@ public class ApiV1Resource {
             selection = "60.139889621242524;24.835881147460896;60.20239233681951;25.013722333984333";
             timezoneSuffix = "+02:00";
         }
+        */
+        String selection = null;
+        String timezoneSuffix = null;
+        MySQLManager store = new MySQLManager();
+        selection = store.getOrgBbox(organization);
+        timezoneSuffix = store.getOrgTZ(organization);
+        if(selection == null) throw new Exception("Bounding box not resolved for organization: "+organization);
+        if(timezoneSuffix == null) throw new Exception("Time zone not resolved for organization: "+organization);
+        
         if (requestContext.getParameter("selection") != null) selection = requestContext.getParameter("selection");
         double lowerCornerLong = Double.parseDouble(selection.split(";")[1]);
         double lowerCornerLat = Double.parseDouble(selection.split(";")[0]);
@@ -3090,7 +3199,8 @@ public class ApiV1Resource {
       newHtml = newHtml.replace("url : '/", "url : '" + new URI(where).getScheme() + "://" + new URI(where).getHost() + "/");
       return newHtml;
     } catch (Exception e) {
-      e.printStackTrace();
+      System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+        e.printStackTrace();
       return html;
     }
   }
@@ -3164,7 +3274,8 @@ public class ApiV1Resource {
             }
           }
         } catch (Exception e) {
-          e.printStackTrace();
+          System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+            e.printStackTrace();
         }
 
         try {
@@ -3177,7 +3288,8 @@ public class ApiV1Resource {
             }
           }
         } catch (Exception e) {
-          e.printStackTrace();
+          System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+            e.printStackTrace();
         }
 
         try {
@@ -3190,7 +3302,8 @@ public class ApiV1Resource {
             }
           }
         } catch (Exception e) {
-          e.printStackTrace();
+          System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+            e.printStackTrace();
         }
 
         try {
@@ -3203,11 +3316,13 @@ public class ApiV1Resource {
             }
           }
         } catch (Exception e) {
-          e.printStackTrace();
+          System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+            e.printStackTrace();
         }
 
       } catch (JSONException e) {
-        e.printStackTrace();
+        System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+          e.printStackTrace();
       }
 
     }
@@ -3269,7 +3384,8 @@ public class ApiV1Resource {
             }
           }
         } catch (Exception e) {
-          e.printStackTrace();
+          System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+            e.printStackTrace();
         }
 
         try {
@@ -3281,7 +3397,8 @@ public class ApiV1Resource {
             }
           }
         } catch (Exception e) {
-          e.printStackTrace();
+          System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+            e.printStackTrace();
         }
 
         try {
@@ -3293,11 +3410,13 @@ public class ApiV1Resource {
             }
           }
         } catch (Exception e) {
-          e.printStackTrace();
+          System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+            e.printStackTrace();
         }
 
       } catch (JSONException e) {
-        e.printStackTrace();
+        System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+          e.printStackTrace();
       }
 
     }
@@ -3363,7 +3482,8 @@ public class ApiV1Resource {
 
       }
     } catch (Exception e) {
-      e.printStackTrace();
+      System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+        e.printStackTrace();
     }
     return sel;
   }
@@ -3390,7 +3510,8 @@ public class ApiV1Resource {
       return competentServiceMaps;
 
     } catch (Exception e) {
-      e.printStackTrace();
+      System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+        e.printStackTrace();
       return new ArrayList<>();
     }
 
@@ -3520,7 +3641,8 @@ public class ApiV1Resource {
           allResponses.add(responseBody);
         }
       } catch (Exception e) {
-        e.printStackTrace();
+        System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+          e.printStackTrace();
       }
     }
 
@@ -3609,7 +3731,8 @@ public class ApiV1Resource {
           String plainResponse = PlainResponsesIterator.next();
           return Response.ok(new JSONObject(plainResponse).toString(4), MediaType.APPLICATION_JSON).header("Access-Control-Allow-Origin", "*").status(Integer.parseInt(responseCode)).build();
         } catch (Exception e) {
-          e.printStackTrace();
+          System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+            e.printStackTrace();
           return Response.status(500).build();
         }
       } else {
@@ -3622,7 +3745,8 @@ public class ApiV1Resource {
       try {
         return Response.ok(new JSONObject(collections.get(0)).toString(4), MediaType.APPLICATION_JSON).header("Access-Control-Allow-Origin", "*").build();
       } catch (Exception e) {
-        e.printStackTrace();
+        System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+          e.printStackTrace();
         return Response.status(500).build();
       }
     }
@@ -3637,7 +3761,8 @@ public class ApiV1Resource {
           events.add((JSONObject) jEvents.get(i));
         }
       } catch (Exception e) {
-        e.printStackTrace();
+        System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+          e.printStackTrace();
       }
 
     }
@@ -3649,7 +3774,8 @@ public class ApiV1Resource {
         try {
           return obj1.getJSONObject("properties").getString("startDate").compareTo(obj2.getJSONObject("properties").getString("startDate"));
         } catch (Exception e) {
-          e.printStackTrace();
+          System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+            e.printStackTrace();
           return 0;
         }
       }
@@ -3666,7 +3792,8 @@ public class ApiV1Resource {
           cleanedEvents.add(events.get(i));
         }
       } catch (Exception e) {
-        e.printStackTrace();
+        System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+          e.printStackTrace();
       }
     }
     events = cleanedEvents;
@@ -3682,7 +3809,8 @@ public class ApiV1Resource {
         events.get(i).put("id", i + 1);
         features.put(events.get(i));
       } catch (Exception e) {
-        e.printStackTrace();
+        System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+          e.printStackTrace();
       }
     }
 

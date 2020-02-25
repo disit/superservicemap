@@ -71,6 +71,7 @@ public class ConnectionPool {
 
   private static ConnectionPool connPool;
   private static DataSource dataSource;
+  private static int maxwait;
   
   /**
    *
@@ -110,6 +111,7 @@ public class ConnectionPool {
     connectionPool.setMaxActive(connections);
     // if the pool is exhausted (i.e., the maximum number of active objects has been reached), the borrowObject() method should simply create a new object anyway
     connectionPool.setWhenExhaustedAction(GenericObjectPool.WHEN_EXHAUSTED_BLOCK); // era GROW
+    connectionPool.setMaxWait(maxwait);
 
     /**
      * Creates a connection factory object which will be use by the pool to
@@ -151,6 +153,8 @@ public class ConnectionPool {
         String userMySql = "";
         String passMySql = "";
         String timezoneMySql = "Europe/Rome";
+        maxwait = 1000;
+        
      
         // Read cfg from file
         
@@ -179,8 +183,9 @@ public class ConnectionPool {
                         urlMySqlDB = eElement.getElementsByTagName("value").item(0).getTextContent();
                     } else if(eElement.getAttribute("id").equalsIgnoreCase("timezoneMySql")) {
                         timezoneMySql = eElement.getElementsByTagName("value").item(0).getTextContent();
+                    } else if(eElement.getAttribute("id").equalsIgnoreCase("maxWait")) {
+                        maxwait = Integer.parseInt(eElement.getElementsByTagName("value").item(0).getTextContent());
                     }
-                    
                 }
             }
             

@@ -52,6 +52,7 @@ public class MySQLManager {
 	private final String DEPENTABLE = "dependency";
 	private final String CACHETABLE = "cache";
         private final String SMPTABLE = "servicemaps_priority";
+        private final String ORGMETA = "orgmeta";
 
 	private String USERNAME = "root"; // default
 	private String PASSWORD = "password"; // default
@@ -863,6 +864,66 @@ public class MySQLManager {
                 }
             }
             return obj.getJSONArray("key");
+	}
+        
+        public String getOrgBbox(String org) throws Exception {
+            Connection connection = null;
+            PreparedStatement preparedStatement = null;
+            ResultSet resultSet = null;
+            try {
+                //connection = DriverManager.getConnection("jdbc:mysql://" + IPADDRESS + "/" + DATABASE + "?user=" + USERNAME + "&password=" + PASSWORD + "&useSSL=false&serverTimezone=UTC");
+                connection = ConnectionPool.getConnection(new Object(){}.getClass().getEnclosingMethod().getName());
+                preparedStatement = connection.prepareStatement("SELECT bbox FROM " + ORGMETA + " WHERE org = ?");
+                preparedStatement.setString(1, org);
+                resultSet = preparedStatement.executeQuery();
+                if(resultSet.next()) {
+                    return resultSet.getString("bbox");                    
+                }
+                else {                          
+                    //close(connection, preparedStatement, resultSet);
+                    //connection = ConnectionPool.getConnection(new Object(){}.getClass().getEnclosingMethod().getName());
+                    preparedStatement = connection.prepareStatement("SELECT bbox FROM " + ORGMETA + " WHERE org IS NULL");
+                    resultSet = preparedStatement.executeQuery();
+                    resultSet.next();
+                    return resultSet.getString("bbox");
+                }
+            } catch (SQLException e) {
+                System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+                e.printStackTrace();
+                    throw e;
+            } finally {
+                close(connection, preparedStatement, resultSet);
+            }
+	}
+        
+        public String getOrgTZ(String org) throws Exception {
+            Connection connection = null;
+            PreparedStatement preparedStatement = null;
+            ResultSet resultSet = null;
+            try {
+                //connection = DriverManager.getConnection("jdbc:mysql://" + IPADDRESS + "/" + DATABASE + "?user=" + USERNAME + "&password=" + PASSWORD + "&useSSL=false&serverTimezone=UTC");
+                connection = ConnectionPool.getConnection(new Object(){}.getClass().getEnclosingMethod().getName());
+                preparedStatement = connection.prepareStatement("SELECT tz FROM " + ORGMETA + " WHERE org = ?");
+                preparedStatement.setString(1, org);
+                resultSet = preparedStatement.executeQuery();
+                if(resultSet.next()) {
+                    return resultSet.getString("tz");                    
+                }
+                else {      
+                    //close(connection, preparedStatement, resultSet);
+                    //connection = ConnectionPool.getConnection(new Object(){}.getClass().getEnclosingMethod().getName());
+                    preparedStatement = connection.prepareStatement("SELECT tz FROM " + ORGMETA + " WHERE org IS NULL");
+                    resultSet = preparedStatement.executeQuery();
+                    resultSet.next();
+                    return resultSet.getString("tz");
+                }
+            } catch (SQLException e) {
+                System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+                e.printStackTrace();
+                    throw e;
+            } finally {
+                close(connection, preparedStatement, resultSet);
+            }
 	}
           
 }
