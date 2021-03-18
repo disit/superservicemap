@@ -143,7 +143,7 @@ public class ConnectionPool {
  
   public static Connection getConnection(String requester) throws IOException, SQLException {
       
-      if (connPool == null) {
+      if (connPool == null || dataSource == null) {
         
         // Default cfg
         
@@ -199,17 +199,19 @@ public class ConnectionPool {
         
         String url = urlMySqlDB+dbMySql+"?useSSL=false&useUnicode=true&characterEncoding=utf-8&serverTimezone="+timezoneMySql;
         int maxConnections = Integer.parseInt(maxConnectionsMySql);
-        connPool = new ConnectionPool(url, userMySql, passMySql,maxConnections);
-        System.out.println("connected "+url+" maxConnections: "+maxConnections);
-        if (dataSource == null) {
-            dataSource = connPool.setUp();
+        synchronized(ConnectionPool.class) {
+            if(connPool == null) {
+                connPool = new ConnectionPool(url, userMySql, passMySql,maxConnections);
+                System.out.println("connected "+url+" maxConnections: "+maxConnections);
+            }
+            if (dataSource == null) {
+                dataSource = connPool.setUp();
+            }
         }
-        
+ 
     }
 
-    Connection c = dataSource.getConnection();
-    try { Thread.sleep(10); } catch(Exception sleepExc) { sleepExc.printStackTrace(); }
-    return c;
+    return dataSource.getConnection();
     
   }
   

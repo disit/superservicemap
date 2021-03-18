@@ -29,6 +29,7 @@ import javax.ws.rs.PathParam;
 import javax.ws.rs.client.Client;
 import javax.ws.rs.client.ClientBuilder;
 import javax.ws.rs.client.WebTarget;
+import javax.ws.rs.client.Entity;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.UriBuilder;
@@ -47,16 +48,12 @@ import com.vividsolutions.jts.geom.LinearRing;
 import com.vividsolutions.jts.geom.Point;
 import com.vividsolutions.jts.geom.Polygon;
 import com.vividsolutions.jts.geom.PrecisionModel;
-import java.io.BufferedInputStream;
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.InputStream;
 import java.io.StringReader;
 import java.net.HttpURLConnection;
 import java.net.URI;
 import java.net.URL;
-import java.net.URLConnection;
-import java.security.Principal;
 import java.text.SimpleDateFormat;
 import java.util.Arrays;
 import java.util.Calendar;
@@ -67,20 +64,11 @@ import java.util.Scanner;
 import java.util.TimeZone;
 import javax.servlet.http.HttpServletRequest;
 import javax.ws.rs.Consumes;
-import javax.ws.rs.FormParam;
-import javax.ws.rs.HeaderParam;
 import javax.ws.rs.POST;
-import javax.ws.rs.client.Invocation;
 import javax.ws.rs.core.Context;
-import javax.ws.rs.core.SecurityContext;
 import javax.xml.parsers.SAXParser;
 import javax.xml.parsers.SAXParserFactory;
-import org.apache.http.HttpEntity;
-import org.apache.http.client.methods.CloseableHttpResponse;
-import org.apache.http.client.methods.HttpPost;
-import org.apache.http.entity.ContentType;
-import org.apache.http.impl.client.CloseableHttpClient;
-import org.apache.http.impl.client.HttpClients;
+import org.glassfish.jersey.client.ClientProperties;
 import org.xml.sax.Attributes;
 import org.xml.sax.InputSource;
 import org.xml.sax.SAXException;
@@ -147,6 +135,7 @@ public class ApiV1Resource {
 
                 // If just one service map must be queried, simply forward the query, return its result, and you are done
       if ("html".equals(format) || competentServiceMapsPrefix.size() == 1) {
+        String serviceMapResponse = null;
         try {
           final String SMQUERY = competentServiceMapsPrefix.get(0) + "/api/v1/?ssm=yes"
                   + (selection == null || selection.isEmpty() ? "" : "&selection=" + URLEncoder.encode(selection, "UTF-8"))
@@ -173,34 +162,39 @@ public class ApiV1Resource {
                   + (graphUri == null || graphUri.isEmpty() ? "" : "&graphUri=" + URLEncoder.encode(graphUri, "UTF-8"))
                   + (fullCount == null || fullCount.isEmpty() ? "" : "&fullCount=" + URLEncoder.encode(fullCount, "UTF-8"))
                   + (apikey == null || apikey.isEmpty() ? "" : "&apikey=" + URLEncoder.encode(apikey, "UTF-8"));
-          ClientConfig config = new ClientConfig();
-          Client client = ClientBuilder.newClient(config);
+          Client client = ClientBuilder.newClient(getWtcCfg());
           WebTarget targetServiceMap = client.target(UriBuilder.fromUri(SMQUERY).build());
           String httpRequestForwardedFor = "";
           if (requestContext.getHeader("X-Forwarded-For") != null && !requestContext.getHeader("X-Forwarded-For").isEmpty()) {
             httpRequestForwardedFor += requestContext.getHeader("X-Forwarded-For") + ",";
           }
           httpRequestForwardedFor += ipAddressRequestCameFrom;
-          Response r = null;
+          Response r;
           if (requestContext.getHeader("Referer") == null) {
-            if (authorization == null) {
+            if (authorization == null || !doAuth(competentServiceMapsPrefix.get(0))) {
               r = targetServiceMap.request().header("X-Forwarded-For", httpRequestForwardedFor).get();
             } else {
               r = targetServiceMap.request().header("X-Forwarded-For", httpRequestForwardedFor).header("Authorization", authorization).get();
             }
           } else {
-            if (authorization == null) {
+            if (authorization == null || !doAuth(competentServiceMapsPrefix.get(0))) {
               r = targetServiceMap.request().header("X-Forwarded-For", httpRequestForwardedFor).header("Referer", requestContext.getHeader("Referer")).get();
             } else {
               r = targetServiceMap.request().header("X-Forwarded-For", httpRequestForwardedFor).header("Authorization", authorization).header("Referer", requestContext.getHeader("Referer")).get();
             }
           }
-          String serviceMapResponse = r.readEntity(String.class);
+          serviceMapResponse = r.readEntity(String.class);
           if ("html".equals(format)) {
             return Response.ok(goThere(competentServiceMapsPrefix.get(0), serviceMapResponse), MediaType.TEXT_HTML).header("Access-Control-Allow-Origin", "*").status(r.getStatus()).build();
           } else {
             return Response.ok(new JSONObject(serviceMapResponse).toString(4), MediaType.APPLICATION_JSON).header("Access-Control-Allow-Origin", "*").status(r.getStatus()).build();
           }
+        } catch(JSONException je) {
+            System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+            je.printStackTrace();
+            System.out.println("HERE IS THE JSON THAT GENERATED THE ERROR:");
+            System.out.println(serviceMapResponse);   
+            return Response.status(500).build();
         } catch (Exception e) {
             System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
             e.printStackTrace();
@@ -252,7 +246,7 @@ public class ApiV1Resource {
           httpRequestForwardedFor += ipAddressRequestCameFrom;
 
           threads[i] = new RequestMakingAndHashThread(SMQUERY, i, BusStopsFeaturedUniques,
-                  SensorSitesFeaturedUniques, ServicesFeaturedUniques, GenericFeaturedUniques, PlainResponses, PlainResponseCodes, httpRequestForwardedFor, authorization, requestContext.getHeader("Referer"));
+                  SensorSitesFeaturedUniques, ServicesFeaturedUniques, GenericFeaturedUniques, PlainResponses, PlainResponseCodes, httpRequestForwardedFor, doAuth(competentServiceMapsPrefix.get(i))?authorization:null, requestContext.getHeader("Referer"));
 
           threads[i].start();
 
@@ -265,12 +259,19 @@ public class ApiV1Resource {
         // If nothing was found querying all the service maps of interest, check to see if all service maps agree about a response, in which case give back that response, otherwise return an empty object. This way, errors due to invalid inputs and similar are forwarded without the need of duplicating the validation.
         if ((ServicesFeaturedUniques.isEmpty() && SensorSitesFeaturedUniques.isEmpty() && BusStopsFeaturedUniques.isEmpty() && GenericFeaturedUniques.isEmpty())) {
           if (PlainResponses.size() == 1 && PlainResponseCodes.size() == 1) {
+            String plainResponse = null;
             try {
               Iterator<String> PlainResponseCodesIterator = PlainResponseCodes.iterator();
               Iterator<String> PlainResponsesIterator = PlainResponses.iterator();
               String responseCode = PlainResponseCodesIterator.next();
-              String plainResponse = PlainResponsesIterator.next();
+              plainResponse = PlainResponsesIterator.next();
               return Response.ok(new JSONObject(plainResponse).toString(4), MediaType.APPLICATION_JSON).header("Access-Control-Allow-Origin", "*").status(Integer.parseInt(responseCode)).build();
+            } catch(JSONException je) {
+                System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+                je.printStackTrace();
+                System.out.println("HERE IS THE JSON THAT GENERATED THE ERROR:");
+                System.out.println(plainResponse);   
+                return Response.status(500).build();
             } catch (Exception e) {
                 System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
                 e.printStackTrace();
@@ -299,14 +300,21 @@ public class ApiV1Resource {
         Iterator<String> busStopIterator = BusStopsFeaturedUniques.iterator();
         HashSet<String> uris = new HashSet<>();
         while (busStopIterator.hasNext()) {
+          String tmpjsonstr = null;
           try {
-            JSONObject tmpJSON = new JSONObject(busStopIterator.next());
+            tmpjsonstr = busStopIterator.next();
+            JSONObject tmpJSON = new JSONObject(tmpjsonstr);
             if (uris.add(tmpJSON.getJSONObject("properties").getString("serviceUri"))) {
               BusStop busStop = new BusStop();
               busStop.dist = Double.parseDouble(tmpJSON.getJSONObject("properties").getString("distance"));
               busStop.obj = tmpJSON;
               allFeatures.add(busStop);
             }
+          } catch(JSONException je) {
+                System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+                je.printStackTrace();
+                System.out.println("HERE IS THE JSON THAT GENERATED THE ERROR:");
+                System.out.println(tmpjsonstr);   
           } catch (Exception e) {
             System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
               e.printStackTrace();
@@ -315,14 +323,21 @@ public class ApiV1Resource {
         uris.clear();
         Iterator<String> sensorSitesIterator = SensorSitesFeaturedUniques.iterator();
         while (sensorSitesIterator.hasNext()) {
+          String tmpjsonstr = null;
           try {
-            JSONObject tmpJSON = new JSONObject(sensorSitesIterator.next());
+            tmpjsonstr = sensorSitesIterator.next();
+            JSONObject tmpJSON = new JSONObject(tmpjsonstr);
             if (uris.add(tmpJSON.getJSONObject("properties").getString("serviceUri"))) {
               SensorSite sensorSite = new SensorSite();
               sensorSite.dist = Double.parseDouble(tmpJSON.getJSONObject("properties").getString("distance"));
               sensorSite.obj = tmpJSON;
               allFeatures.add(sensorSite);
             }
+          } catch(JSONException je) {
+                System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+                je.printStackTrace();
+                System.out.println("HERE IS THE JSON THAT GENERATED THE ERROR:");
+                System.out.println(tmpjsonstr);   
           } catch (Exception e) {
             System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
               e.printStackTrace();
@@ -331,14 +346,21 @@ public class ApiV1Resource {
         uris.clear();
         Iterator<String> servicesIterator = ServicesFeaturedUniques.iterator();
         while (servicesIterator.hasNext()) {
+          String tmpjsonstr = null;
           try {
-            JSONObject tmpJSON = new JSONObject(servicesIterator.next());
+            tmpjsonstr = servicesIterator.next();
+            JSONObject tmpJSON = new JSONObject(tmpjsonstr);
             if (uris.add(tmpJSON.getJSONObject("properties").getString("serviceUri"))) {
               Service service = new Service();
               service.dist = Double.parseDouble(tmpJSON.getJSONObject("properties").getString("distance"));
               service.obj = tmpJSON;
               allFeatures.add(service);
             }
+          } catch(JSONException je) {
+                System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+                je.printStackTrace();
+                System.out.println("HERE IS THE JSON THAT GENERATED THE ERROR:");
+                System.out.println(tmpjsonstr);   
           } catch (Exception e) {
             System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
               e.printStackTrace();
@@ -347,14 +369,21 @@ public class ApiV1Resource {
         uris.clear();
         Iterator<String> genericIterator = GenericFeaturedUniques.iterator();
         while (genericIterator.hasNext()) {
+          String tmpjsonstr = null;
           try {
-            JSONObject tmpJSON = new JSONObject(genericIterator.next());
+            tmpjsonstr = genericIterator.next();
+            JSONObject tmpJSON = new JSONObject(tmpjsonstr);
             if (uris.add(tmpJSON.getJSONObject("properties").getString("serviceUri"))) {
               Generic generic = new Generic();
               generic.dist = computeDistance(str2geo(selection), str2geo(getAddressPosition(tmpJSON)));
               generic.obj = tmpJSON;
               allFeatures.add(generic);
             }
+          } catch(JSONException je) {
+                System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+                je.printStackTrace();
+                System.out.println("HERE IS THE JSON THAT GENERATED THE ERROR:");
+                System.out.println(tmpjsonstr);   
           } catch (Exception e) {
             System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
               e.printStackTrace();
@@ -638,50 +667,63 @@ public class ApiV1Resource {
       String idOfSMwithUri = store.getSMIdFromServiceUriCache(serviceUri);
 
       if (idOfSMwithUri != null) { // If it is cached
+        String entitystr = null;
         try {
           final String SMQUERY = store.getUrlPrefixFromSMid(idOfSMwithUri) + completePathAndQuery;
-          ClientConfig config = new ClientConfig();
-          Client client = ClientBuilder.newClient(config);
+          Client client = ClientBuilder.newClient(getWtcCfg());
           WebTarget targetServiceMap = client.target(UriBuilder.fromUri(SMQUERY).build());
-          Response r = null;
+          Response r;
           if (requestContext.getHeader("Referer") == null) {
-            if (authorization == null) { r = targetServiceMap.request().header("X-Forwarded-For", httpRequestForwardedFor).get(); }
+            if (authorization == null || !doAuth(store.getUrlPrefixFromSMid(idOfSMwithUri))) { r = targetServiceMap.request().header("X-Forwarded-For", httpRequestForwardedFor).get(); }
             else { r = targetServiceMap.request().header("X-Forwarded-For", httpRequestForwardedFor).header("Authorization", authorization).get(); } 
           } else {
-            if (authorization == null) {  r = targetServiceMap.request().header("X-Forwarded-For", httpRequestForwardedFor).header("Referer", requestContext.getHeader("Referer")).get(); }
+            if (authorization == null || !doAuth(store.getUrlPrefixFromSMid(idOfSMwithUri))) {  r = targetServiceMap.request().header("X-Forwarded-For", httpRequestForwardedFor).header("Referer", requestContext.getHeader("Referer")).get(); }
             else {  r = targetServiceMap.request().header("X-Forwarded-For", httpRequestForwardedFor).header("Referer", requestContext.getHeader("Referer")).header("Authorization", authorization).get(); }
           }
-          return Response.ok("html".equals(format) ? goThere(store.getUrlPrefixFromSMid(idOfSMwithUri), r.readEntity(String.class)) : new JSONObject(r.readEntity(String.class)).toString(4), "html".equals(format) ? MediaType.TEXT_HTML : MediaType.APPLICATION_JSON).header("Access-Control-Allow-Origin", "*").status(r.getStatus()).build();
+          entitystr = r.readEntity(String.class);
+          return Response.ok("html".equals(format) ? goThere(store.getUrlPrefixFromSMid(idOfSMwithUri), entitystr) : new JSONObject(entitystr).toString(4), "html".equals(format) ? MediaType.TEXT_HTML : MediaType.APPLICATION_JSON).header("Access-Control-Allow-Origin", "*").status(r.getStatus()).build();
+        } catch(JSONException je) {
+                System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+                je.printStackTrace();
+                System.out.println("HERE IS THE JSON THAT GENERATED THE ERROR:");
+                System.out.println(entitystr);   
         } catch (Exception e) {
           System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
             e.printStackTrace();
         }
       }
 
+      String response = null; 
+      String plainResponse = null;
       try {
         List<ServiceMap> sMs = store.getAll(api, format);
         HashSet<String> responses = new HashSet<>();
         HashSet<String> responseCodes = new HashSet<>();
+        String tmpc = null;
         for (int i = 0; i < sMs.size(); i++) {
           final String SMQUERY = store.getUrlPrefixFromSMid(sMs.get(i).getId()) + completePathAndQuery;
-          ClientConfig config = new ClientConfig();
-          Client client = ClientBuilder.newClient(config);
+          Client client = ClientBuilder.newClient(getWtcCfg());
           WebTarget targetServiceMap = client.target(UriBuilder.fromUri(SMQUERY).build());
-          Response r = null;
+          Response r;
           if (requestContext.getHeader("Referer") == null) {
-            if (authorization == null) {  r = targetServiceMap.request().header("X-Forwarded-For", httpRequestForwardedFor).get(); }
+            if (authorization == null || !doAuth(store.getUrlPrefixFromSMid(sMs.get(i).getId())) ) {  r = targetServiceMap.request().header("X-Forwarded-For", httpRequestForwardedFor).get(); }
             else {  r = targetServiceMap.request().header("X-Forwarded-For", httpRequestForwardedFor).header("Authorization", authorization).get(); } 
           } else {
-              if (authorization == null) {  r = targetServiceMap.request().header("X-Forwarded-For", httpRequestForwardedFor).header("Referer", requestContext.getHeader("Referer")).get(); }
+              if (authorization == null || !doAuth(store.getUrlPrefixFromSMid(sMs.get(i).getId())) ) {  r = targetServiceMap.request().header("X-Forwarded-For", httpRequestForwardedFor).header("Referer", requestContext.getHeader("Referer")).get(); }
               else {  r = targetServiceMap.request().header("X-Forwarded-For", httpRequestForwardedFor).header("Referer", requestContext.getHeader("Referer")).header("Authorization", authorization).get(); }
           }
           String code = String.valueOf(r.getStatus());
-          String response = r.readEntity(String.class).replaceAll("[\r]", "").replaceAll("[\n]", "");
+          response = r.readEntity(String.class).replaceAll("[\r]", "").replaceAll("[\n]", "");
           responseCodes.add(code);
           responses.add(response);
-          if (r.getStatus() != 400) {
+          if (r.getStatus() == 200) {
             store.insertCache(serviceUri, sMs.get(i).getId());
             return Response.ok("html".equals(format) ? goThere(store.getUrlPrefixFromSMid(sMs.get(i).getId()), response) : new JSONObject(response).toString(4), "html".equals(format) ? MediaType.TEXT_HTML : MediaType.APPLICATION_JSON).header("Access-Control-Allow-Origin", "*").build();
+          }
+          else {
+              if(tmpc == null || r.getStatus() != 400) {
+                  tmpc = sMs.get(i).getId();
+              }
           }
         }
         if (responses.size() == 1 && responseCodes.size() == 1) {
@@ -689,9 +731,18 @@ public class ApiV1Resource {
           Iterator<String> PlainResponseCodesIterator = responseCodes.iterator();
           Iterator<String> PlainResponsesIterator = responses.iterator();
           String responseCode = PlainResponseCodesIterator.next();
-          String plainResponse = PlainResponsesIterator.next();
+          plainResponse = PlainResponsesIterator.next();
           return Response.ok("html".equals(format) ? goThere(store.getUrlPrefixFromSMid(sMs.get(0).getId()), plainResponse) : new JSONObject(plainResponse).toString(4), "html".equals(format) ? MediaType.TEXT_HTML : MediaType.APPLICATION_JSON).header("Access-Control-Allow-Origin", "*").status(Integer.parseInt(responseCode)).build();
         }
+        else {
+            store.insertCache(serviceUri, tmpc, true);
+            return Response.status(500).build();
+        }
+      } catch(JSONException je) {
+                System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+                je.printStackTrace();
+                System.out.println("THIS IS THE JSON THAT GENERATED THE ERROR:");
+                System.out.println(plainResponse!=null?plainResponse:response);   
       } catch (Exception e) {
         System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
           e.printStackTrace();
@@ -763,12 +814,19 @@ public class ApiV1Resource {
             // Produce the response
     if (addresses.isEmpty()) { // If no addresses could be found, simply return an empty object                
       if (allResponses.size() == 1 && allResponseCodes.size() == 1) {
+        String plainResponse = null;
         try {
           Iterator<String> PlainResponseCodesIterator = allResponseCodes.iterator();
           Iterator<String> PlainResponsesIterator = allResponses.iterator();
           String responseCode = PlainResponseCodesIterator.next();
-          String plainResponse = PlainResponsesIterator.next();
+          plainResponse = PlainResponsesIterator.next();
           return Response.ok(new JSONObject(plainResponse).toString(4), MediaType.APPLICATION_JSON).header("Access-Control-Allow-Origin", "*").status(Integer.parseInt(responseCode)).build();
+        } catch(JSONException je) {
+            System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+            je.printStackTrace();
+            System.out.println("HERE IS THE JSON THAT GENERATED THE ERROR:");
+            System.out.println(plainResponse);   
+            return Response.status(500).build();
         } catch (Exception e) {
           System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
             e.printStackTrace();
@@ -778,8 +836,16 @@ public class ApiV1Resource {
         return Response.status(500).build();
       }
     } else if (1 == addresses.size()) { // If just one address could be found, simply return it
+      String address0 = null; 
       try {
-        return Response.ok(new JSONObject(addresses.get(0)).toString(4), MediaType.APPLICATION_JSON).header("Access-Control-Allow-Origin", "*").build();
+        address0 = addresses.get(0);
+        return Response.ok(new JSONObject(address0).toString(4), MediaType.APPLICATION_JSON).header("Access-Control-Allow-Origin", "*").build();
+      } catch(JSONException je) {
+            System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+            je.printStackTrace();
+            System.out.println("HERE IS THE JSON THAT GENERATED THE ERROR:");
+            System.out.println(address0);   
+            return Response.status(500).build();
       } catch (Exception e) {
         System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
           e.printStackTrace();
@@ -819,6 +885,11 @@ public class ApiV1Resource {
             sortedAddresses.add(address);
           }
 
+        } catch(JSONException je) {
+            System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+            je.printStackTrace();
+            System.out.println("HERE IS THE JSON THAT GENERATED THE ERROR:");
+            System.out.println(strAddress);   
         } catch (Exception e) {
           System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
             e.printStackTrace();
@@ -971,12 +1042,19 @@ public class ApiV1Resource {
             // If no valid responses arrived...
     if (collections.isEmpty()) {
       if (allResponses.size() == 1 && allResponseCodes.size() == 1) {
+        String plainResponse = null;
         try {
           Iterator<String> PlainResponseCodesIterator = allResponseCodes.iterator();
           Iterator<String> PlainResponsesIterator = allResponses.iterator();
           String responseCode = PlainResponseCodesIterator.next();
-          String plainResponse = PlainResponsesIterator.next();
+          plainResponse = PlainResponsesIterator.next();
           return Response.ok(new JSONObject(plainResponse).toString(4), MediaType.APPLICATION_JSON).header("Access-Control-Allow-Origin", "*").status(Integer.parseInt(responseCode)).build();
+        } catch(JSONException je) {
+            System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+            je.printStackTrace();
+            System.out.println("HERE IS THE JSON THAT GENERATED THE ERROR:");
+            System.out.println(plainResponse);   
+            return Response.status(500).build();
         } catch (Exception e) {
           System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
             e.printStackTrace();
@@ -989,9 +1067,17 @@ public class ApiV1Resource {
 
             // If just one valid response arrived...
     if (collections.size() == 1) {
+      String collections0 = null;
       try {
-        return Response.ok(new JSONObject(collections.get(0)).toString(4), MediaType.APPLICATION_JSON).header("Access-Control-Allow-Origin", "*").build();
-      } catch (Exception e) {
+        collections0 = collections.get(0);
+        return Response.ok(new JSONObject(collections0).toString(4), MediaType.APPLICATION_JSON).header("Access-Control-Allow-Origin", "*").build();
+      } catch(JSONException je) {
+            System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+            je.printStackTrace();
+            System.out.println("HERE IS THE JSON THAT GENERATED THE ERROR:");
+            System.out.println(collections0);   
+            return Response.status(500).build();
+        } catch (Exception e) {
         System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
           e.printStackTrace();
         return Response.status(500).build();
@@ -1007,7 +1093,12 @@ public class ApiV1Resource {
         for (int i = 0; i < jEvents.length(); i++) {
           events.add((JSONObject) jEvents.get(i));
         }
-      } catch (Exception e) {
+      } catch(JSONException je) {
+            System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+            je.printStackTrace();
+            System.out.println("HERE IS THE JSON THAT GENERATED THE ERROR:");
+            System.out.println(collection);   
+        } catch (Exception e) {
         System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
           e.printStackTrace();
       }
@@ -1128,12 +1219,19 @@ public class ApiV1Resource {
             // If no valid responses arrived...
     if (collections.isEmpty()) {
       if (allResponses.size() == 1 && allResponseCodes.size() == 1) {
+        String plainResponse = null;
         try {
           Iterator<String> PlainResponseCodesIterator = allResponseCodes.iterator();
           Iterator<String> PlainResponsesIterator = allResponses.iterator();
           String responseCode = PlainResponseCodesIterator.next();
-          String plainResponse = PlainResponsesIterator.next();
+          plainResponse = PlainResponsesIterator.next();
           return Response.ok(new JSONObject(plainResponse).toString(4), MediaType.APPLICATION_JSON).header("Access-Control-Allow-Origin", "*").status(Integer.parseInt(responseCode)).build();
+        } catch(JSONException je) {
+            System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+            je.printStackTrace();
+            System.out.println("HERE IS THE JSON THAT GENERATED THE ERROR:");
+            System.out.println(plainResponse);   
+            return Response.status(500).build();
         } catch (Exception e) {
           System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
             e.printStackTrace();
@@ -1146,9 +1244,17 @@ public class ApiV1Resource {
 
             // If just one valid response arrived...
     if (collections.size() == 1) {
+      String collections0 = null;
       try {
-        return Response.ok(new JSONObject(collections.get(0)).toString(4), MediaType.APPLICATION_JSON).header("Access-Control-Allow-Origin", "*").build();
-      } catch (Exception e) {
+        collections0 = collections.get(0);
+        return Response.ok(new JSONObject(collections0).toString(4), MediaType.APPLICATION_JSON).header("Access-Control-Allow-Origin", "*").build();
+      } catch(JSONException je) {
+            System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+            je.printStackTrace();
+            System.out.println("HERE IS THE JSON THAT GENERATED THE ERROR:");
+            System.out.println(collections0);   
+            return Response.status(500).build();
+        } catch (Exception e) {
         System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
           e.printStackTrace();
         return Response.status(500).build();
@@ -1164,7 +1270,12 @@ public class ApiV1Resource {
         for (int i = 0; i < jAgencies.length(); i++) {
           agencies.add((JSONObject) jAgencies.get(i));
         }
-      } catch (Exception e) {
+      } catch(JSONException je) {
+            System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+            je.printStackTrace();
+            System.out.println("HERE IS THE JSON THAT GENERATED THE ERROR:");
+            System.out.println(collection);   
+        } catch (Exception e) {
         System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
           e.printStackTrace();
       }
@@ -1260,12 +1371,19 @@ public class ApiV1Resource {
             // If no valid responses arrived...
     if (collections.isEmpty()) {
       if (allResponses.size() == 1 && allResponseCodes.size() == 1) {
+        String plainResponse = null;
         try {
           Iterator<String> PlainResponseCodesIterator = allResponseCodes.iterator();
           Iterator<String> PlainResponsesIterator = allResponses.iterator();
           String responseCode = PlainResponseCodesIterator.next();
-          String plainResponse = PlainResponsesIterator.next();
+          plainResponse = PlainResponsesIterator.next();
           return Response.ok(new JSONObject(plainResponse).toString(4), MediaType.APPLICATION_JSON).header("Access-Control-Allow-Origin", "*").status(Integer.parseInt(responseCode)).build();
+        } catch(JSONException je) {
+            System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+            je.printStackTrace();
+            System.out.println("HERE IS THE JSON THAT GENERATED THE ERROR:");
+            System.out.println(plainResponse);   
+            return Response.status(500).build();
         } catch (Exception e) {
           System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
             e.printStackTrace();
@@ -1278,9 +1396,17 @@ public class ApiV1Resource {
 
             // If just one valid response arrived...
     if (collections.size() == 1) {
+      String collections0 = null;
       try {
-        return Response.ok(new JSONObject(collections.get(0)).toString(4), MediaType.APPLICATION_JSON).header("Access-Control-Allow-Origin", "*").build();
-      } catch (Exception e) {
+        collections0 = collections.get(0);
+        return Response.ok(new JSONObject(collections0).toString(4), MediaType.APPLICATION_JSON).header("Access-Control-Allow-Origin", "*").build();
+      } catch(JSONException je) {
+            System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+            je.printStackTrace();
+            System.out.println("HERE IS THE JSON THAT GENERATED THE ERROR:");
+            System.out.println(collections0);   
+            return Response.status(500).build();
+        } catch (Exception e) {
         System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
           e.printStackTrace();
         return Response.status(500).build();
@@ -1296,7 +1422,12 @@ public class ApiV1Resource {
         for (int i = 0; i < jLines.length(); i++) {
           lines.add((JSONObject) jLines.get(i));
         }
-      } catch (Exception e) {
+      } catch(JSONException je) {
+            System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+            je.printStackTrace();
+            System.out.println("HERE IS THE JSON THAT GENERATED THE ERROR:");
+            System.out.println(collection);   
+        } catch (Exception e) {
         System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
           e.printStackTrace();
       }
@@ -1398,12 +1529,19 @@ public class ApiV1Resource {
             // If no valid responses arrived...
     if (collections.isEmpty()) {
       if (allResponses.size() == 1 && allResponseCodes.size() == 1) {
+        String plainResponse = null;
         try {
           Iterator<String> PlainResponseCodesIterator = allResponseCodes.iterator();
           Iterator<String> PlainResponsesIterator = allResponses.iterator();
           String responseCode = PlainResponseCodesIterator.next();
-          String plainResponse = PlainResponsesIterator.next();
+          plainResponse = PlainResponsesIterator.next();
           return Response.ok(new JSONObject(plainResponse).toString(4), MediaType.APPLICATION_JSON).header("Access-Control-Allow-Origin", "*").status(Integer.parseInt(responseCode)).build();
+        } catch(JSONException je) {
+            System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+            je.printStackTrace();
+            System.out.println("HERE IS THE JSON THAT GENERATED THE ERROR:");
+            System.out.println(plainResponse);   
+            return Response.status(500).build();
         } catch (Exception e) {
           System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
             e.printStackTrace();
@@ -1416,9 +1554,17 @@ public class ApiV1Resource {
 
             // If just one valid response arrived...
     if (collections.size() == 1) {
+      String collections0 = null;
       try {
-        return Response.ok(new JSONObject(collections.get(0)).toString(4), MediaType.APPLICATION_JSON).header("Access-Control-Allow-Origin", "*").build();
-      } catch (Exception e) {
+        collections0 = collections.get(0);
+        return Response.ok(new JSONObject(collections0).toString(4), MediaType.APPLICATION_JSON).header("Access-Control-Allow-Origin", "*").build();
+      } catch(JSONException je) {
+            System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+            je.printStackTrace();
+            System.out.println("HERE IS THE JSON THAT GENERATED THE ERROR:");
+            System.out.println(collections0);   
+            return Response.status(500).build();
+        } catch (Exception e) {
         System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
           e.printStackTrace();
         return Response.status(500).build();
@@ -1434,7 +1580,12 @@ public class ApiV1Resource {
         for (int i = 0; i < jRoutes.length(); i++) {
           routes.add((JSONObject) jRoutes.get(i));
         }
-      } catch (Exception e) {
+      } catch(JSONException je) {
+            System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+            je.printStackTrace();
+            System.out.println("HERE IS THE JSON THAT GENERATED THE ERROR:");
+            System.out.println(collection);   
+        } catch (Exception e) {
         System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
           e.printStackTrace();
       }
@@ -1536,12 +1687,19 @@ public class ApiV1Resource {
             // If no valid responses arrived...
     if (collections.isEmpty()) {
       if (allResponses.size() == 1 && allResponseCodes.size() == 1) {
+        String plainResponse = null;
         try {
           Iterator<String> PlainResponseCodesIterator = allResponseCodes.iterator();
           Iterator<String> PlainResponsesIterator = allResponses.iterator();
           String responseCode = PlainResponseCodesIterator.next();
-          String plainResponse = PlainResponsesIterator.next();
+          plainResponse = PlainResponsesIterator.next();
           return Response.ok(new JSONObject(plainResponse).toString(4), MediaType.APPLICATION_JSON).header("Access-Control-Allow-Origin", "*").status(Integer.parseInt(responseCode)).build();
+        } catch(JSONException je) {
+            System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+            je.printStackTrace();
+            System.out.println("HERE IS THE JSON THAT GENERATED THE ERROR:");
+            System.out.println(plainResponse);   
+            return Response.status(500).build();
         } catch (Exception e) {
           System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
             e.printStackTrace();
@@ -1554,9 +1712,17 @@ public class ApiV1Resource {
 
             // If just one valid response arrived...
     if (collections.size() == 1) {
+      String collections0 = null;
       try {
-        return Response.ok(new JSONObject(collections.get(0)).toString(4), MediaType.APPLICATION_JSON).header("Access-Control-Allow-Origin", "*").build();
-      } catch (Exception e) {
+        collections0 = collections.get(0);
+        return Response.ok(new JSONObject(collections0).toString(4), MediaType.APPLICATION_JSON).header("Access-Control-Allow-Origin", "*").build();
+      } catch(JSONException je) {
+            System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+            je.printStackTrace();
+            System.out.println("HERE IS THE JSON THAT GENERATED THE ERROR:");
+            System.out.println(collections0);   
+            return Response.status(500).build();
+        } catch (Exception e) {
         System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
           e.printStackTrace();
         return Response.status(500).build();
@@ -1582,7 +1748,12 @@ public class ApiV1Resource {
         for (int i = 0; i < jStops.length(); i++) {
           stops.add((JSONObject) jStops.get(i));
         }
-      } catch (Exception e) {
+      } catch(JSONException je) {
+            System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+            je.printStackTrace();
+            System.out.println("HERE IS THE JSON THAT GENERATED THE ERROR:");
+            System.out.println(collection);   
+        } catch (Exception e) {
         System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
           e.printStackTrace();
       }
@@ -1623,10 +1794,17 @@ public class ApiV1Resource {
             // Initialize response
     JSONObject response = new JSONObject();
     if (1 == routes.size()) {
+      String inext = null;
       try {
         Iterator i = routes.iterator();
-        response.put("Route", new JSONObject(i.next().toString()));
-      } catch (Exception e) {
+        inext = i.next().toString();
+        response.put("Route", new JSONObject(inext));
+      } catch(JSONException je) {
+            System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+            je.printStackTrace();
+            System.out.println("HERE IS THE JSON THAT GENERATED THE ERROR:");
+            System.out.println(inext);   
+        } catch (Exception e) {
         System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
           e.printStackTrace();
       }
@@ -1634,8 +1812,15 @@ public class ApiV1Resource {
       JSONArray jRoutes = new JSONArray();
       Iterator i = routes.iterator();
       while (i.hasNext()) {
+        String inext = null;
         try {
-          jRoutes.put(new JSONObject(i.next().toString()));
+          inext = i.next().toString();
+          jRoutes.put(new JSONObject(inext));
+        } catch(JSONException je) {
+            System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+            je.printStackTrace();
+            System.out.println("HERE IS THE JSON THAT GENERATED THE ERROR:");
+            System.out.println(inext);   
         } catch (Exception e) {
           System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
             e.printStackTrace();
@@ -1716,12 +1901,19 @@ public class ApiV1Resource {
             // If no valid responses arrived...
     if (collections.isEmpty()) {
       if (allResponses.size() == 1 && allResponseCodes.size() == 1) {
+        String plainResponse = null;
         try {
           Iterator<String> PlainResponseCodesIterator = allResponseCodes.iterator();
           Iterator<String> PlainResponsesIterator = allResponses.iterator();
           String responseCode = PlainResponseCodesIterator.next();
-          String plainResponse = PlainResponsesIterator.next();
+          plainResponse = PlainResponsesIterator.next();
           return Response.ok(new JSONObject(plainResponse).toString(4), MediaType.APPLICATION_JSON).header("Access-Control-Allow-Origin", "*").status(Integer.parseInt(responseCode)).build();
+        } catch(JSONException je) {
+            System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+            je.printStackTrace();
+            System.out.println("HERE IS THE JSON THAT GENERATED THE ERROR:");
+            System.out.println(plainResponse);   
+            return Response.status(500).build();
         } catch (Exception e) {
           System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
             e.printStackTrace();
@@ -1734,9 +1926,17 @@ public class ApiV1Resource {
 
             // If just one valid response arrived...
     if (collections.size() == 1) {
+      String collections0 = null;
       try {
-        return Response.ok(new JSONObject(collections.get(0)).toString(4), MediaType.APPLICATION_JSON).header("Access-Control-Allow-Origin", "*").build();
-      } catch (Exception e) {
+        collections0 = collections.get(0);
+        return Response.ok(new JSONObject(collections0).toString(4), MediaType.APPLICATION_JSON).header("Access-Control-Allow-Origin", "*").build();
+      } catch(JSONException je) {
+            System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+            je.printStackTrace();
+            System.out.println("HERE IS THE JSON THAT GENERATED THE ERROR:");
+            System.out.println(collections0);   
+            return Response.status(500).build();
+        } catch (Exception e) {
         System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
           e.printStackTrace();
         Response.status(500).build();
@@ -1752,7 +1952,12 @@ public class ApiV1Resource {
         for (int i = 0; i < jRoutes.length(); i++) {
           routes.add((JSONObject) jRoutes.get(i));
         }
-      } catch (Exception e) {
+      } catch(JSONException je) {
+            System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+            je.printStackTrace();
+            System.out.println("HERE IS THE JSON THAT GENERATED THE ERROR:");
+            System.out.println(collection);   
+        } catch (Exception e) {
         System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
           e.printStackTrace();
       }
@@ -1851,6 +2056,7 @@ public class ApiV1Resource {
             // If the required format is HTML, simply forward the request to the first service map of the list and you are done. 
     // Indeed, service maps are returned sorted by priority for HTML output.
     if ("html".equals(format) || competentServiceMaps.size() == 1) {
+      String response = null;
       try {
         final String SMQUERY = competentServiceMaps.get(0) + "/api/v1/tpl/bus-position/?ssm=yes"
                 + (format == null || format.isEmpty() ? "" : "&format=" + URLEncoder.encode(format, "UTF-8"))
@@ -1858,22 +2064,27 @@ public class ApiV1Resource {
                 + (requestFrom == null || requestFrom.isEmpty() ? "" : "&requestFrom=" + URLEncoder.encode(requestFrom, "UTF-8"))
                 + (agency == null || agency.isEmpty() ? "" : "&agency=" + URLEncoder.encode(agency, "UTF-8"))
                 + (line == null || line.isEmpty() ? "" : "&line=" + URLEncoder.encode(line, "UTF-8"));
-        ClientConfig config = new ClientConfig();
-        Client client = ClientBuilder.newClient(config);
+        Client client = ClientBuilder.newClient(getWtcCfg());
         WebTarget targetServiceMap = client.target(UriBuilder.fromUri(SMQUERY).build());
-        Response r = null;
+        Response r;
         if (requestContext.getHeader("Referer") == null) {
           r = targetServiceMap.request().get();
         } else {
           r = targetServiceMap.request().header("Referer", requestContext.getHeader("Referer")).get();
         }
-        String response = r.readEntity(String.class);
+        response = r.readEntity(String.class);        
         if ("html".equals(format)) {
           return Response.ok(goThere(competentServiceMaps.get(0), response), MediaType.TEXT_HTML).status(r.getStatus()).header("Access-Control-Allow-Origin", "*").build();
         } else {
           return Response.ok(new JSONObject(response).toString(4), MediaType.APPLICATION_JSON).status(r.getStatus()).header("Access-Control-Allow-Origin", "*").build();
         }
-      } catch (Exception e) {
+      } catch(JSONException je) {
+            System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+            je.printStackTrace();
+            System.out.println("HERE IS THE JSON THAT GENERATED THE ERROR:");
+            System.out.println(response);   
+            return Response.status(500).build();
+        } catch (Exception e) {
         System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
           e.printStackTrace();
         return Response.status(500).build();
@@ -1911,12 +2122,19 @@ public class ApiV1Resource {
             // If no valid responses arrived...
     if (collections.isEmpty()) {
       if (allResponses.size() == 1 && allResponseCodes.size() == 1) {
+        String plainResponse = null;
         try {
           Iterator<String> PlainResponseCodesIterator = allResponseCodes.iterator();
           Iterator<String> PlainResponsesIterator = allResponses.iterator();
           String responseCode = PlainResponseCodesIterator.next();
-          String plainResponse = PlainResponsesIterator.next();
+          plainResponse = PlainResponsesIterator.next();
           return Response.ok(new JSONObject(plainResponse).toString(4), MediaType.APPLICATION_JSON).header("Access-Control-Allow-Origin", "*").status(Integer.parseInt(responseCode)).build();
+        } catch(JSONException je) {
+            System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+            je.printStackTrace();
+            System.out.println("HERE IS THE JSON THAT GENERATED THE ERROR:");
+            System.out.println(plainResponse);   
+            return Response.status(500).build();
         } catch (Exception e) {
           System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
             e.printStackTrace();
@@ -1929,9 +2147,17 @@ public class ApiV1Resource {
 
             // If just one valid response arrived...
     if (collections.size() == 1) {
+      String collections0 = null;
       try {
-        return Response.ok(new JSONObject(collections.get(0)).toString(4), MediaType.APPLICATION_JSON).header("Access-Control-Allow-Origin", "*").build();
-      } catch (Exception e) {
+        collections0 = collections.get(0);
+        return Response.ok(new JSONObject(collections0).toString(4), MediaType.APPLICATION_JSON).header("Access-Control-Allow-Origin", "*").build();
+      } catch(JSONException je) {
+            System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+            je.printStackTrace();
+            System.out.println("HERE IS THE JSON THAT GENERATED THE ERROR:");
+            System.out.println(collections0);   
+            return Response.status(500).build();
+        } catch (Exception e) {
         System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
           e.printStackTrace();
         return Response.status(500).build();
@@ -1947,7 +2173,12 @@ public class ApiV1Resource {
         for (int i = 0; i < jBusPositions.length(); i++) {
           busPositions.add((JSONObject) jBusPositions.get(i));
         }
-      } catch (Exception e) {
+      } catch(JSONException je) {
+            System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+            je.printStackTrace();
+            System.out.println("HERE IS THE JSON THAT GENERATED THE ERROR:");
+            System.out.println(collection);   
+        } catch (Exception e) {
         System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
           e.printStackTrace();
       }
@@ -2007,49 +2238,6 @@ public class ApiV1Resource {
 
   }
 
-        // Submit ratings and comments about a given service
-        /*
-   @SuppressWarnings("deprecation")
-   @Path("/photo")
-   @POST
-   @Consumes(MediaType.MULTIPART_FORM_DATA)
-   public Response putPhoto(
-   @QueryParam("serviceUri") String serviceUri,
-   @QueryParam("uid") String uid,
-   @FormDataParam("file") InputStream uploadedInputStream,
-   @FormDataParam("file") FormDataContentDisposition fileDetail
-   ) throws Exception {
-            
-   HashSet<String> responses = new HashSet<>();
-   HashSet<String> responseCodes = new HashSet<>();
-   MySQLManager store = new MySQLManager();
-   String smid = store.getSMIdFromServiceUriCache(serviceUri);
-   if(smid == null) {
-   List<ServiceMap> sMs = store.getAll();
-   for (int i = 0; i < sMs.size(); i++) {
-   try {
-   final String PSMQUERY = store.getUrlPrefixFromSMid(sMs.get(i).getId()) + "/api/v1/?ssm=yes&serviceUri=" + URLEncoder.encode(serviceUri,"UTF-8");
-   ClientConfig config = new ClientConfig();
-   Client client = ClientBuilder.newClient(config);
-   WebTarget targetServiceMap = client.target(UriBuilder.fromUri(PSMQUERY).build());
-   Response r = targetServiceMap.request().get();
-   if(r.getStatus() == 200) {
-   postPhoto(store.getUrlPrefixFromSMid(sMs.get(i).getId()) + "/api/v1/photo", serviceUri, file, uid, responses, responseCodes);
-   store.insertCache(serviceUri, sMs.get(i).getId());
-   break;
-   }
-   }
-   catch(Exception e) {
-   e.printStackTrace();
-   }
-   }
-   }
-   else {
-   postPhoto(store.getUrlPrefixFromSMid(store.getUrlPrefixFromSMid(smid) + "/api/v1/photo", serviceUri, file, uid, responses, responseCodes);
-   }
-   return null;
-   }
-   */
   // Submit ratings and comments about a given service
   @SuppressWarnings("deprecation")
   @Path("/feedback")
@@ -2075,31 +2263,6 @@ public class ApiV1Resource {
     HashSet<String> responseCodes = new HashSet<>();
     MySQLManager store = new MySQLManager();
 
-    /* matter of choice: efficiency vs consistency 
-     String idOfSMwithUri = store.getSMIdFromServiceUriCache(serviceUri);
-            
-     if (idOfSMwithUri != null) { // If it is cached
-
-     try {
-     final String SMQUERY = store.getUrlPrefixFromSMid(idOfSMwithUri) + "/api/v1/feedback/?ssm=yes"
-     + (serviceUri == null || serviceUri.isEmpty() ? "" : "&serviceUri=" + URLEncoder.encode(serviceUri, "UTF-8")) 
-     + (stars == null || stars.isEmpty() ? "" : "&stars=" + URLEncoder.encode(stars, "UTF-8")) 
-     + (comment == null || comment.isEmpty() ? "" : "&comment=" + URLEncoder.encode(comment, "UTF-8")) 
-     + (lang == null || lang.isEmpty() ? "" : "&lang=" + URLEncoder.encode(lang, "UTF-8"))                                            
-     + (uid == null || uid.isEmpty() ? "" : "&uid=" + URLEncoder.encode(uid, "UTF-8"));
-
-     ClientConfig config = new ClientConfig();
-     Client client = ClientBuilder.newClient(config);
-     WebTarget targetServiceMap = client.target(UriBuilder.fromUri(SMQUERY).build());
-     Response r = targetServiceMap.request().get();
-     return Response.ok(new JSONObject(r.readEntity(String.class)).toString(4), MediaType.APPLICATION_JSON).header("Access-Control-Allow-Origin", "*").status(r.getStatus()).build();
-     }
-     catch(Exception e) {}
-                
-     } 
-
-     List<ServiceMap> sMs = store.getAll("/feedback","json");
-     */
     String smid = store.getSMIdFromServiceUriCache(serviceUri);
     if (smid == null) {
       List<ServiceMap> sMs = store.getAll();
@@ -2107,11 +2270,10 @@ public class ApiV1Resource {
       for (int i = 0; i < sMs.size(); i++) {
         try {
           final String PSMQUERY = store.getUrlPrefixFromSMid(sMs.get(i).getId()) + "/api/v1/?ssm=yes&serviceUri=" + URLEncoder.encode(serviceUri, "UTF-8");
-          ClientConfig config = new ClientConfig();
-          Client client = ClientBuilder.newClient(config);
+          Client client = ClientBuilder.newClient(getWtcCfg());
           WebTarget targetServiceMap = client.target(UriBuilder.fromUri(PSMQUERY).build());
 
-          Response r = null;
+          Response r;
           if (requestContext.getHeader("Referer") == null) {
             r = targetServiceMap.request().header("X-Forwarded-For", httpRequestForwardedFor).get();
           } else {
@@ -2124,8 +2286,7 @@ public class ApiV1Resource {
                     + (comment == null || comment.isEmpty() ? "" : "&comment=" + URLEncoder.encode(comment, "UTF-8"))
                     + (lang == null || lang.isEmpty() ? "" : "&lang=" + URLEncoder.encode(lang, "UTF-8"))
                     + (uid == null || uid.isEmpty() ? "" : "&uid=" + URLEncoder.encode(uid, "UTF-8"));
-            config = new ClientConfig();
-            client = ClientBuilder.newClient(config);
+            client = ClientBuilder.newClient(getWtcCfg());
             targetServiceMap = client.target(UriBuilder.fromUri(SMQUERY).build());
             if (requestContext.getHeader("Referer") == null) {
               r = targetServiceMap.request().header("X-Forwarded-For", httpRequestForwardedFor).get();
@@ -2150,10 +2311,9 @@ public class ApiV1Resource {
                 + (comment == null || comment.isEmpty() ? "" : "&comment=" + URLEncoder.encode(comment, "UTF-8"))
                 + (lang == null || lang.isEmpty() ? "" : "&lang=" + URLEncoder.encode(lang, "UTF-8"))
                 + (uid == null || uid.isEmpty() ? "" : "&uid=" + URLEncoder.encode(uid, "UTF-8"));
-        ClientConfig config = new ClientConfig();
-        Client client = ClientBuilder.newClient(config);
+        Client client = ClientBuilder.newClient(getWtcCfg());
         WebTarget targetServiceMap = client.target(UriBuilder.fromUri(SMQUERY).build());
-        Response r = null;
+        Response r;
         if (requestContext.getHeader("Referer") == null) {
           r = targetServiceMap.request().header("X-Forwarded-For", httpRequestForwardedFor).get();
         } else {
@@ -2233,12 +2393,19 @@ public class ApiV1Resource {
     // If nothing was found querying all the service maps of interest, check to see if all service maps agree about a response, in which case give back that response, otherwise return an empty object. This way, errors due to invalid inputs and similar are forwarded without the need of duplicating the validation.
     if ((lastPhotos.isEmpty() && lastComments.isEmpty() && lastStars.isEmpty())) {
       if (plainResponses.size() == 1 && plainResponseCodes.size() == 1) {
+        String plainResponse = null;
         try {
           Iterator<String> PlainResponseCodesIterator = plainResponses.iterator();
           Iterator<String> PlainResponsesIterator = plainResponseCodes.iterator();
           String responseCode = PlainResponseCodesIterator.next();
-          String plainResponse = PlainResponsesIterator.next();
+          plainResponse = PlainResponsesIterator.next();
           return Response.ok(new JSONObject(plainResponse).toString(4), MediaType.APPLICATION_JSON).header("Access-Control-Allow-Origin", "*").status(Integer.parseInt(responseCode)).build();
+        } catch(JSONException je) {
+            System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+            je.printStackTrace();
+            System.out.println("HERE IS THE JSON THAT GENERATED THE ERROR:");
+            System.out.println(plainResponse);   
+            return Response.status(500).build();
         } catch (Exception e) {
           System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
             e.printStackTrace();
@@ -2263,10 +2430,19 @@ public class ApiV1Resource {
 
       @Override
       public int compare(String str1, String str2) {
+        String s = null;
         try {
+          s = str1;
           JSONObject obj1 = new JSONObject(str1);
+          s = str2;
           JSONObject obj2 = new JSONObject(str2);
           return obj2.getString("timestamp").compareTo(obj1.getString("timestamp"));
+        } catch(JSONException je) {
+            System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+            je.printStackTrace();
+            System.out.println("HERE IS THE JSON THAT GENERATED THE ERROR:");          
+            System.out.println(s);
+            return 0;
         } catch (Exception e) {
           System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
             e.printStackTrace();
@@ -2279,10 +2455,17 @@ public class ApiV1Resource {
     sortedLastPhotos.sort(new LastContributionComparator());
     int ctr = 0;
     while (ctr < sortedLastPhotos.size() && ctr < Collections.max(limit)) {
+      String slp = null;
       try {
-        JSONObject lastPhoto = new JSONObject(sortedLastPhotos.get(ctr));
+        slp = sortedLastPhotos.get(ctr);
+        JSONObject lastPhoto = new JSONObject(slp);
         jLastPhotos.put(lastPhoto);
-      } catch (Exception e) {
+      } catch(JSONException je) {
+            System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+            je.printStackTrace();
+            System.out.println("HERE IS THE JSON THAT GENERATED THE ERROR:");          
+            System.out.println(slp);
+        } catch (Exception e) {
         System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
           e.printStackTrace();
       }
@@ -2293,10 +2476,17 @@ public class ApiV1Resource {
     sortedLastComments.sort(new LastContributionComparator());
     ctr = 0;
     while (ctr < sortedLastComments.size() && ctr < Collections.max(limit)) {
+      String slc = null;
       try {
-        JSONObject lastComment = new JSONObject(sortedLastComments.get(ctr));
+        slc = sortedLastComments.get(ctr);
+        JSONObject lastComment = new JSONObject(slc);
         jLastComments.put(lastComment);
-      } catch (Exception e) {
+      } catch(JSONException je) {
+            System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+            je.printStackTrace();
+            System.out.println("HERE IS THE JSON THAT GENERATED THE ERROR:");          
+            System.out.println(slc);
+        } catch (Exception e) {
         System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
           e.printStackTrace();
       }
@@ -2307,10 +2497,17 @@ public class ApiV1Resource {
     sortedLastStars.sort(new LastContributionComparator());
     ctr = 0;
     while (ctr < sortedLastStars.size() && ctr < Collections.max(limit)) {
+      String sls = null;
       try {
-        JSONObject lastStar = new JSONObject(sortedLastStars.get(ctr));
+        sls = sortedLastStars.get(ctr);
+        JSONObject lastStar = new JSONObject(sls);
         jLastStars.put(lastStar);
-      } catch (Exception e) {
+      } catch(JSONException je) {
+            System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+            je.printStackTrace();
+            System.out.println("HERE IS THE JSON THAT GENERATED THE ERROR:");          
+            System.out.println(sls);
+        } catch (Exception e) {
         System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
           e.printStackTrace();
       }
@@ -2343,6 +2540,7 @@ public class ApiV1Resource {
       HashSet<String> allResponses = new HashSet<>();
       HashSet<String> allCodes = new HashSet<>();
       for (String competentServiceMap : competentServiceMaps) {
+        String response = null;
         try {
           final String SMQUERY = competentServiceMap + "/api/v1/shortestpath/?ssm=yes"
                   + (source == null || source.isEmpty() ? "" : "&source=" + URLEncoder.encode(source, "UTF-8"))
@@ -2352,8 +2550,7 @@ public class ApiV1Resource {
                   + (format == null || format.isEmpty() ? "" : "&format=" + URLEncoder.encode(format, "UTF-8"))
                   + (uid == null || uid.isEmpty() ? "" : "&uid=" + URLEncoder.encode(uid, "UTF-8"))
                   + (requestFrom == null || requestFrom.isEmpty() ? "" : "&requestFrom=" + URLEncoder.encode(requestFrom, "UTF-8"));
-          ClientConfig config = new ClientConfig();
-          Client client = ClientBuilder.newClient(config);
+          Client client = ClientBuilder.newClient(getWtcCfg());
           WebTarget targetServiceMap = client.target(UriBuilder.fromUri(SMQUERY).build());
           String ipAddressRequestCameFrom = requestContext.getRemoteAddr();
           String httpRequestForwardedFor = "";
@@ -2361,14 +2558,14 @@ public class ApiV1Resource {
             httpRequestForwardedFor += requestContext.getHeader("X-Forwarded-For") + ",";
           }
           httpRequestForwardedFor += ipAddressRequestCameFrom;
-          Response r = null;
+          Response r;
           if (requestContext.getHeader("Referer") == null) {
             r = targetServiceMap.request().header("X-Forwarded-For", httpRequestForwardedFor).get();
           } else {
             r = targetServiceMap.request().header("X-Forwarded-For", httpRequestForwardedFor).header("Referer", requestContext.getHeader("Referer")).get();
           }
           String code = String.valueOf(r.getStatus());
-          String response = r.readEntity(String.class);
+          response = r.readEntity(String.class);
           allCodes.add(code);
           allResponses.add(response);
           if ("200".equals(code)) {
@@ -2378,6 +2575,11 @@ public class ApiV1Resource {
               return Response.ok(new JSONObject(response).toString(4), MediaType.APPLICATION_JSON).status(r.getStatus()).header("Access-Control-Allow-Origin", "*").build();
             }
           }
+        } catch(JSONException je) {
+            System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+            je.printStackTrace();
+            System.out.println("HERE IS THE JSON THAT GENERATED THE ERROR:");          
+            System.out.println(response);
         } catch (Exception e) {
           System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
             e.printStackTrace();
@@ -2385,10 +2587,17 @@ public class ApiV1Resource {
 
       }
       if (allResponses.size() == 1 && allCodes.size() == 1) {
+        String arn = null;
         try {
           Iterator allResponsesIterator = allResponses.iterator();
           Iterator allCodesIterator = allCodes.iterator();
-          return Response.ok("html".equals(format) ? goThere(competentServiceMaps.get(0), allResponsesIterator.next().toString()) : new JSONObject(allResponsesIterator.next().toString()).toString(4), "html".equals(format) ? MediaType.TEXT_HTML : MediaType.APPLICATION_JSON).status(Integer.parseInt(allCodesIterator.next().toString())).build();
+          arn = allResponsesIterator.next().toString();
+          return Response.ok("html".equals(format) ? goThere(competentServiceMaps.get(0), arn) : new JSONObject(arn).toString(4), "html".equals(format) ? MediaType.TEXT_HTML : MediaType.APPLICATION_JSON).status(Integer.parseInt(allCodesIterator.next().toString())).build();
+        } catch(JSONException je) {
+            System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+            je.printStackTrace();
+            System.out.println("HERE IS THE JSON THAT GENERATED THE ERROR:");          
+            System.out.println(arn);
         } catch (Exception e) {
           System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
             e.printStackTrace();
@@ -2443,16 +2652,15 @@ public class ApiV1Resource {
                 if(doc.getDocumentElement().getElementsByTagName("fes:Before").getLength() > 0) toTime = ((Element)doc.getDocumentElement().getElementsByTagName("fes:Before").item(0)).getElementsByTagName("gml:timePosition").item(0).getTextContent();        
             } catch(Exception eeee) {}        
         }
-        String serverUrl = requestContext.getRequestURL().toString();
-        if (requestContext.getRequestURL().toString().indexOf("?") > -1) {
-            serverUrl = serverUrl.substring(0, serverUrl.indexOf("?"));
-        }
-        serverUrl = "https://www.disit.org/superservicemap/api/v1/" + organization + "/wfs";
+        //String serverUrl = requestContext.getRequestURL().toString();
+        //if (requestContext.getRequestURL().toString().contains("?")) serverUrl = serverUrl.substring(0, serverUrl.indexOf("?"));
+        String serverUrl = "https://www.disit.org/superservicemap/api/v1/" + organization + "/wfs";
         String serverVersion = "2.0.0";
+        String jsonStr = null;
         try {
             
-            String selection = null;
-            String timezoneSuffix = null;
+            String selection;
+            String timezoneSuffix;
             MySQLManager store = new MySQLManager();
             selection = store.getOrgBbox(organization);
             timezoneSuffix = store.getOrgTZ(organization);
@@ -2489,7 +2697,7 @@ public class ApiV1Resource {
                 case "GetCapabilities":
                     return WfsServer.getCapabilities(serverVersion, serverUrl, lowerCornerLong, lowerCornerLat, upperCornerLong, upperCornerLat, t);
                 case "DescribeFeatureType":
-                    java.util.Vector<String> typenamesVector = new java.util.Vector<>();
+                    // java.util.Vector<String> typenamesVector = new java.util.Vector<>();
                     NodeList typenamesNodelist = root.getElementsByTagName("TypeName");
                     String typeName = null;
                     if (typenamesNodelist.getLength() > 0) {
@@ -2538,7 +2746,7 @@ public class ApiV1Resource {
                         }
                         httpRequestForwardedFor += requestContext.getRemoteAddr();
                         Response r = getServiceURI(pID, "json", "/api/v1", "/api/v1/?ssm=yes&realtime=true&serviceUri=" + URLEncoder.encode(pID, "UTF-8"), httpRequestForwardedFor, null);
-                        String jsonStr = r.getEntity().toString();
+                        jsonStr = r.getEntity().toString();
                         WfsServer.getFeature(requestContext, serverUrl, serverVersion, t, timezoneSuffix, selection, organization, tt, pFilter, ts, jsonStr, nowAsISO, pResultType, r, pID);
                     } else {
                         NodeList wfsQueries = root.getElementsByTagName("wfs:Query");
@@ -2564,8 +2772,8 @@ public class ApiV1Resource {
                             areDetailsRequired = true;
                         } else {
                             String[] propNameArray = pPropertyName.split(",");
-                            for (int p = 0; p < propNameArray.length; p++) {
-                                if (!("km4c:serviceUri".equals(propNameArray[p]) || "km4c:name".equals(propNameArray[p]) || "km4c:typeLabel".equals(propNameArray[p]) || "km4c:geometry".equals(propNameArray[p]))) {
+                            for (String propNameArray1 : propNameArray) {
+                                if (!("km4c:serviceUri".equals(propNameArray1) || "km4c:name".equals(propNameArray1) || "km4c:typeLabel".equals(propNameArray1) || "km4c:geometry".equals(propNameArray1))) {
                                     areDetailsRequired = true;
                                 }
                             }
@@ -2598,17 +2806,26 @@ public class ApiV1Resource {
                             if (requestContext.getParameter("accessToken") != null) accessToken = requestContext.getParameter("accessToken");
                             long tstart1 = System.currentTimeMillis();
                             Response services = getServices(selection, queryId, search, categories, text, maxDists, maxResults, lang, null, uid, "json", null, null, null, requestServiceUri, "true", "WFS", null, null, null, null, null, null, "true", accessToken, null);
-                            String jsonStr = services.getEntity().toString();
+                            jsonStr = services.getEntity().toString();
                             long tend1 = System.currentTimeMillis();
                             JSONObject jsonObj = new JSONObject(jsonStr);
-                            JSONObject targetObj = null;
-                            if ("km4c:BusStop".equals(typeName)) targetObj = jsonObj.getJSONObject("BusStops");
-                            else if ("km4c:SensorSite".equals(typeName)) targetObj = jsonObj.getJSONObject("SensorSites");
-                            else targetObj = jsonObj.getJSONObject("Services");
+                            JSONObject targetObj;
+                            if (null == typeName) targetObj = jsonObj.getJSONObject("Services");
+                            else switch (typeName) {
+                                case "km4c:BusStop":
+                                    targetObj = jsonObj.getJSONObject("BusStops");
+                                    break;
+                                case "km4c:SensorSite":
+                                    targetObj = jsonObj.getJSONObject("SensorSites");
+                                    break;
+                                default:
+                                    targetObj = jsonObj.getJSONObject("Services");
+                                    break;
+                            }
                             JSONArray features = targetObj.getJSONArray("features");
                             int fullCount = features.length();
                             if (targetObj.has("fullCount")) fullCount = targetObj.getInt("fullCount");
-                            String response = "<?xml version=\"1.0\" ?>\n" + "<wfs:FeatureCollection xmlns:xlink=\"http://www.w3.org/1999/xlink\" xmlns:km4c=\"http://www.disit.org/km4city/schema#\" xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" xmlns:wfs=\"http://www.opengis.net/wfs/2.0\" xmlns:gml=\"http://www.opengis.net/gml/3.2\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" numberMatched=\"" + String.valueOf(fullCount) + "\" numberReturned=\"" + String.valueOf(features.length()) + "\" timeStamp=\"" + nowAsISO + "\" xsi:schemaLocation=\"http://www.opengis.net/wfs/2.0 http://schemas.opengis.net/wfs/2.0/wfs.xsd " + serverUrl + "?service=WFS&amp;version=" + serverVersion + "&amp;request=DescribeFeatureType&amp;typeName=" + typeName.replaceAll(":", "%3") + " http://www.opengis.net/gml/3.2 http://schemas.opengis.net/gml/3.2.1/gml.xsd\">";
+                            String response = "<?xml version=\"1.0\" ?>\n" + "<wfs:FeatureCollection xmlns:xlink=\"http://www.w3.org/1999/xlink\" xmlns:km4c=\"http://www.disit.org/km4city/schema#\" xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" xmlns:wfs=\"http://www.opengis.net/wfs/2.0\" xmlns:gml=\"http://www.opengis.net/gml/3.2\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" numberMatched=\"" + String.valueOf(fullCount) + "\" numberReturned=\"" + String.valueOf(features.length()) + "\" timeStamp=\"" + nowAsISO + "\" xsi:schemaLocation=\"http://www.opengis.net/wfs/2.0 http://schemas.opengis.net/wfs/2.0/wfs.xsd " + serverUrl + "?service=WFS&amp;version=" + serverVersion + "&amp;request=DescribeFeatureType&amp;typeName=" + (typeName!=null?typeName.replaceAll(":", "%3"):"") + " http://www.opengis.net/gml/3.2 http://schemas.opengis.net/gml/3.2.1/gml.xsd\">";
                             for (int f = 0; f < features.length(); f++) {
                                 JSONObject feature = features.getJSONObject(f);
                                 String serviceUri; 
@@ -2636,7 +2853,7 @@ public class ApiV1Resource {
                                     String cap = null;      String province = null; String address = null;  String civic = null;    String phone = null;
                                     String fax = null;      String website;         String email = null;    String note = null;     String description = null;
                                     String linkDBpedia;     double avgStars = -1;   int starsCount = -1;    String typeLabel = null;String serviceType = null;
-                                    String agency = null;   String agencyUri = null;
+                                    String agency = null;   String agencyUri;
                                     try {
                                         serviceUri = feature.getJSONObject("properties").getString("serviceUri");
                                         URI uri = URI.create(serviceUri);
@@ -2684,7 +2901,7 @@ public class ApiV1Resource {
                                     if(serviceType == null) throw new WfsException(WfsException.OPERATION_PROCESSING_FAILED, "serviceType");
                                     response = response + "<wfs:member>"
                                         + "<" + typeName + " gml:id=\"" + serviceUri + "\">\n"
-                                        + (serviceUri != null && (!"null".equals(serviceUri)) && !serviceUri.isEmpty() ? "   <km4c:serviceUri>" + serviceUri.replaceAll("&", "&amp;") + "</km4c:serviceUri>" : "")
+                                        + ((!"null".equals(serviceUri)) && !serviceUri.isEmpty() ? "   <km4c:serviceUri>" + serviceUri.replaceAll("&", "&amp;") + "</km4c:serviceUri>" : "")
                                         + (name != null && (!"null".equals(name)) && !name.isEmpty() ? "   <km4c:name>" + name.replaceAll("&", "&amp;") + "</km4c:name>" : "")
                                         + (typeLabel != null && (!"null".equals(typeLabel)) && !typeLabel.isEmpty() ? "   <km4c:typeLabel>" + typeLabel + "</km4c:typeLabel>" : "")
                                         + (latitude != -1 && longitude != -1 ? "<km4c:geometry><gml:Point srsDimension=\"2\" srsName=\"http://www.opengis.net/def/crs/EPSG/0/4326\"><gml:pos>" + String.valueOf(longitude) + " " + String.valueOf(latitude) + "</gml:pos></gml:Point></km4c:geometry>" : "")
@@ -2716,7 +2933,7 @@ public class ApiV1Resource {
                             if (requestContext.getParameter("uid") != null) uid = requestContext.getParameter("uid");                            
                             if (requestContext.getParameter("requestFrom") != null) requestFrom = requestContext.getParameter("requestFrom");
                             Response services = getEvents(range, selection, null, maxResults, uid, requestFrom);
-                            String jsonStr = services.getEntity().toString();
+                            jsonStr = services.getEntity().toString();
                             JSONObject jsonObj = new JSONObject(jsonStr);
                             JSONObject targetObj = jsonObj.getJSONObject("Event");
                             JSONArray features = targetObj.getJSONArray("features");
@@ -2786,7 +3003,7 @@ public class ApiV1Resource {
                                     if (serviceUri == null) throw new WfsException(WfsException.OPERATION_PROCESSING_FAILED, "serviceUri");
                                     response = response + "<wfs:member>"
                                         + "<km4c:Event gml:id=\"" + serviceUri + "\" >\n"
-                                        + (serviceUri != null && (!"null".equals(serviceUri)) && !serviceUri.isEmpty() ? "   <km4c:serviceUri>" + serviceUri.replaceAll("&", "&amp;") + "</km4c:serviceUri>" : "")
+                                        + ((!"null".equals(serviceUri)) && !serviceUri.isEmpty() ? "   <km4c:serviceUri>" + serviceUri.replaceAll("&", "&amp;") + "</km4c:serviceUri>" : "")
                                         + (name != null && (!"null".equals(name)) && !name.isEmpty() ? "   <km4c:name>" + name.replaceAll("&", "&amp;") + "</km4c:name>" : "")
                                         + (latitude != -1 && longitude != -1 ? "<km4c:geometry><gml:Point srsDimension=\"2\" srsName=\"http://www.opengis.net/def/crs/EPSG/0/4326\"><gml:pos>" + String.valueOf(longitude) + " " + String.valueOf(latitude) + "</gml:pos></gml:Point></km4c:geometry>" : "")
                                         + (isRequested("km4c:city", pPropertyName) && city != null && (!"null".equals(city)) && !city.isEmpty() ? "   <km4c:city>" + city + "</km4c:city>" : "")
@@ -2829,13 +3046,26 @@ public class ApiV1Resource {
                 + (wfse.getLocator() != null ? "<Exception exceptionCode=\"%s\" locator=\"%s\"/>\n" : "<Exception exceptionCode=\"%s\" />\n")
                 + "</ExceptionReport>";
             String xmlResponse = wfse.getLocator() != null ? String.format(template, wfse.getCode(), wfse.getLocator().replaceAll("\"", "\\\"")) : String.format(template, wfse.getCode());
-            if (WfsException.NOT_FOUND.equals(wfse.getCode())) {
-                return Response.status(404).entity(xmlResponse).header("Content-Type", "application/gml+xml;version=3.2").header("Cache-Control", "no-cache").build();
-            } else if (WfsException.OPERATION_PROCESSING_FAILED.equals(wfse.getCode())) {
-                return Response.status(500).entity(xmlResponse).header("Content-Type", "application/gml+xml;version=3.2").header("Cache-Control", "no-cache").build();
-            } else {
+            if (null == wfse.getCode()) {
                 return Response.status(400).entity(xmlResponse).header("Content-Type", "application/gml+xml;version=3.2").header("Cache-Control", "no-cache").build();
+            } else switch (wfse.getCode()) {
+                case WfsException.NOT_FOUND:
+                    return Response.status(404).entity(xmlResponse).header("Content-Type", "application/gml+xml;version=3.2").header("Cache-Control", "no-cache").build();
+                case WfsException.OPERATION_PROCESSING_FAILED:
+                    return Response.status(500).entity(xmlResponse).header("Content-Type", "application/gml+xml;version=3.2").header("Cache-Control", "no-cache").build();
+                default:
+                    return Response.status(400).entity(xmlResponse).header("Content-Type", "application/gml+xml;version=3.2").header("Cache-Control", "no-cache").build();
             }
+        } catch(JSONException je) {
+            System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+            je.printStackTrace();
+            System.out.println("HERE IS THE JSON THAT GENERATED THE ERROR:");          
+            System.out.println(jsonStr);
+            String xmlResponse = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
+                + "<ExceptionReport xmlns=\"http://www.opengis.net/ows/1.1\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xsi:schemaLocation=\"http://www.opengis.net/ows/1.1 http://schemas.opengis.net/ows/1.1.0/owsAll.xsd\" version=\"" + serverVersion + "\">\n"
+                + "<Exception exceptionCode=\"NoApplicableCode\" locator=\"" + (je.getMessage() != null ? je.getMessage().replace("\"", "&quot;") : "") + "\" />"
+                + "</ExceptionReport>";
+            return Response.status(400).entity(xmlResponse).header("Content-Type", "application/gml+xml;version=3.2").header("Cache-Control", "no-cache").build();
         } catch (Exception e) {
             String xmlResponse = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
                 + "<ExceptionReport xmlns=\"http://www.opengis.net/ows/1.1\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xsi:schemaLocation=\"http://www.opengis.net/ows/1.1 http://schemas.opengis.net/ows/1.1.0/owsAll.xsd\" version=\"" + serverVersion + "\">\n"
@@ -2901,8 +3131,8 @@ public class ApiV1Resource {
             timezoneSuffix = "+02:00";
         }
         */
-        String selection = null;
-        String timezoneSuffix = null;
+        String selection;
+        String timezoneSuffix;
         MySQLManager store = new MySQLManager();
         selection = store.getOrgBbox(organization);
         timezoneSuffix = store.getOrgTZ(organization);
@@ -2914,10 +3144,11 @@ public class ApiV1Resource {
         double lowerCornerLat = Double.parseDouble(selection.split(";")[0]);
         double upperCornerLong = Double.parseDouble(selection.split(";")[3]);
         double upperCornerLat = Double.parseDouble(selection.split(";")[2]);
-        String serverUrl = requestContext.getRequestURL().toString();
-        if (requestContext.getRequestURL().toString().indexOf("?") > -1) serverUrl = serverUrl.substring(0, serverUrl.indexOf("?"));
-        serverUrl = "https://www.disit.org/superservicemap/api/v1/" + organization + "/wfs";
+        //String serverUrl = requestContext.getRequestURL().toString();
+        //if (requestContext.getRequestURL().toString().contains("?")) serverUrl = serverUrl.substring(0, serverUrl.indexOf("?"));
+        String serverUrl = "https://www.disit.org/superservicemap/api/v1/" + organization + "/wfs";
         String serverVersion = "2.0.0";
+        String jsonStr = null;
         try {
             String pService = service;
             if (pService == null) pService = Service;
@@ -2933,14 +3164,14 @@ public class ApiV1Resource {
             String[] pAcceptVersionsArray = pAcceptVersions.split(",");
             if (pAcceptVersionsArray.length == 0) throw new WfsException(WfsException.INVALID_PARAMETER_VALUE, "ACCEPTVERSIONS");
             boolean acceptVersionsOk = false;
-            String version = null;
-            for (int i = 0; i < pAcceptVersionsArray.length; i++) {
-                if ("2.0.0".equals(pAcceptVersionsArray[i]) || "1.1.0".equals(pAcceptVersionsArray[i])) {
-                    version = pAcceptVersionsArray[i];
+            String version;
+            for (String pAcceptVersionsArray1 : pAcceptVersionsArray) {
+                if ("2.0.0".equals(pAcceptVersionsArray1) || "1.1.0".equals(pAcceptVersionsArray1)) {
+                    // version = pAcceptVersionsArray1;
                     acceptVersionsOk = true;
                     continue;
                 }
-                version = pAcceptVersionsArray[i];
+                version = pAcceptVersionsArray1;
                 String[] splittedVersion = version.split("\\.");
                 if (splittedVersion.length != 3) throw new WfsException(WfsException.INVALID_PARAMETER_VALUE, "ACCEPTVERSIONS");
                 if (!isInteger(splittedVersion[0])) throw new WfsException(WfsException.INVALID_PARAMETER_VALUE, "ACCEPTVERSIONS");
@@ -2995,8 +3226,8 @@ public class ApiV1Resource {
                         String xmlPropertyName = "";
                         if (pPropertyName != null) {
                             String[] propertyNameArray = pPropertyName.split(",");
-                            for (int p = 0; p < propertyNameArray.length; p++) {
-                                xmlPropertyName += "<wfs:PropertyName>" + propertyNameArray[p] + "</wfs:PropertyName>";
+                            for (String propertyNameArray1 : propertyNameArray) {
+                                xmlPropertyName += "<wfs:PropertyName>" + propertyNameArray1 + "</wfs:PropertyName>";
                             }
                         }
 
@@ -3072,7 +3303,7 @@ public class ApiV1Resource {
                     httpRequestForwardedFor += requestContext.getRemoteAddr();
                     Response r = getServiceURI(pID, "json", "/api/v1", "/api/v1/?ssm=yes&realtime=true&serviceUri=" + URLEncoder.encode(pID, "UTF-8") + (fromTime != null ? "&fromTime="+URLEncoder.encode(fromTime,"UTF-8") : "") + (toTime != null ? "&toTime="+URLEncoder.encode(toTime,"UTF-8") : ""), httpRequestForwardedFor,null);
                     if(r.getStatus() != 200) throw new WfsException(WfsException.OPERATION_PROCESSING_FAILED, null);
-                    String jsonStr = r.getEntity().toString();
+                    jsonStr = r.getEntity().toString();
                     return WfsServer.getFeature(requestContext, serverUrl, serverVersion, t, timezoneSuffix, selection, organization, 0, pFilter, 0, jsonStr, nowAsISO, pResultType, r, pID);
                 default:
                     throw new WfsException(WfsException.OPERATION_NOT_SUPPORTED, pRequest);
@@ -3083,13 +3314,26 @@ public class ApiV1Resource {
                 + (wfse.getLocator() != null ? "<Exception exceptionCode=\"%s\" locator=\"%s\"/>\n" : "<Exception exceptionCode=\"%s\" />\n")
                 + "</ExceptionReport>";
             String xmlResponse = wfse.getLocator() != null ? String.format(template, wfse.getCode(), wfse.getLocator().replaceAll("\"", "\\\"")) : String.format(template, wfse.getCode());
-            if (WfsException.NOT_FOUND.equals(wfse.getCode())) {
-                return Response.status(404).entity(xmlResponse).header("Content-Type", "application/gml+xml;version=3.2").header("Cache-Control", "no-cache").build();
-            } else if (WfsException.OPERATION_PROCESSING_FAILED.equals(wfse.getCode())) {
-                return Response.status(500).entity(xmlResponse).header("Content-Type", "application/gml+xml;version=3.2").header("Cache-Control", "no-cache").build();
-            } else {
+            if (null == wfse.getCode()) {
                 return Response.status(400).entity(xmlResponse).header("Content-Type", "application/gml+xml;version=3.2").header("Cache-Control", "no-cache").build();
+            } else switch (wfse.getCode()) {
+                case WfsException.NOT_FOUND:
+                    return Response.status(404).entity(xmlResponse).header("Content-Type", "application/gml+xml;version=3.2").header("Cache-Control", "no-cache").build();
+                case WfsException.OPERATION_PROCESSING_FAILED:
+                    return Response.status(500).entity(xmlResponse).header("Content-Type", "application/gml+xml;version=3.2").header("Cache-Control", "no-cache").build();
+                default:
+                    return Response.status(400).entity(xmlResponse).header("Content-Type", "application/gml+xml;version=3.2").header("Cache-Control", "no-cache").build();
             }
+        } catch(JSONException je) {
+            System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+            je.printStackTrace();
+            System.out.println("HERE IS THE JSON THAT GENERATED THE ERROR:");          
+            System.out.println(jsonStr);
+            String xmlResponse = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
+                + "<ExceptionReport xmlns=\"http://www.opengis.net/ows/1.1\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xsi:schemaLocation=\"http://www.opengis.net/ows/1.1 http://schemas.opengis.net/ows/1.1.0/owsAll.xsd\" version=\"" + serverVersion + "\">\n"
+                + "<Exception exceptionCode=\"NoApplicableCode\" locator=\"" + (je.getMessage() != null ? je.getMessage().replace("\"", "&quot;") : "") + "\" />"
+                + "</ExceptionReport>";
+            return Response.status(400).entity(xmlResponse).header("Content-Type", "application/gml+xml;version=3.2").header("Cache-Control", "no-cache").build();
         } catch (Exception e) {
             String xmlResponse = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
                 + "<ExceptionReport xmlns=\"http://www.opengis.net/ows/1.1\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xsi:schemaLocation=\"http://www.opengis.net/ows/1.1 http://schemas.opengis.net/ows/1.1.0/owsAll.xsd\" version=\"" + serverVersion + "\">\n"
@@ -3236,12 +3480,13 @@ public class ApiV1Resource {
     @Override
     public void run() {
 
+      String serviceMapResponse = null;
       try {
 
-        ClientConfig config = new ClientConfig();
+        ClientConfig config = getWtcCfg();
         Client client = ClientBuilder.newClient(config);
         WebTarget targetServiceMap = client.target(UriBuilder.fromUri(request).build());
-        Response r = null;
+        Response r;
         if (this.referer == null) {
           if (this.authorization == null) {
             r = targetServiceMap.request().header("X-Forwarded-For", this.httpRequestForwardedFor).get();
@@ -3255,7 +3500,7 @@ public class ApiV1Resource {
             r = targetServiceMap.request().header("X-Forwarded-For", this.httpRequestForwardedFor).header("Authorization", this.authorization).header("Referer", this.referer).get();
           }
         }
-        String serviceMapResponse = r.readEntity(String.class);
+        serviceMapResponse = r.readEntity(String.class);
         PlainResponses.add(serviceMapResponse);
         PlainResponseCodes.add(String.valueOf(r.getStatus()));
         if (r.getStatus() != 200) {
@@ -3320,10 +3565,12 @@ public class ApiV1Resource {
             e.printStackTrace();
         }
 
-      } catch (JSONException e) {
-        System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
-          e.printStackTrace();
-      }
+      } catch(JSONException je) {
+            System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+            je.printStackTrace();
+            System.out.println("HERE IS THE JSON THAT GENERATED THE ERROR:");          
+            System.out.println(serviceMapResponse);
+        } 
 
     }
 
@@ -3358,18 +3605,18 @@ public class ApiV1Resource {
     @Override
     public void run() {
 
+      String serviceMapResponse = null;
       try {
 
-        ClientConfig config = new ClientConfig();
-        Client client = ClientBuilder.newClient(config);
+        Client client = ClientBuilder.newClient(getWtcCfg());
         WebTarget targetServiceMap = client.target(UriBuilder.fromUri(request).build());
-        Response r = null;
+        Response r;
         if (this.referer == null) {
           r = targetServiceMap.request().header("X-Forwarded-For", httpRequestForwardedFor).get();
         } else {
           r = targetServiceMap.request().header("X-Forwarded-For", httpRequestForwardedFor).header("Referer", this.referer).get();
         }
-        String serviceMapResponse = r.readEntity(String.class);
+        serviceMapResponse = r.readEntity(String.class);
         plainResponses.add(serviceMapResponse);
         plainResponseCodes.add(String.valueOf(r.getStatus()));
 
@@ -3414,10 +3661,12 @@ public class ApiV1Resource {
             e.printStackTrace();
         }
 
-      } catch (JSONException e) {
-        System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
-          e.printStackTrace();
-      }
+      } catch(JSONException je) {
+            System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+            je.printStackTrace();
+            System.out.println("HERE IS THE JSON THAT GENERATED THE ERROR:");          
+            System.out.println(serviceMapResponse);
+        } 
 
     }
 
@@ -3515,6 +3764,18 @@ public class ApiV1Resource {
       return new ArrayList<>();
     }
 
+  }
+  
+  private boolean doAuth(String prefix) {
+    try {
+      MySQLManager msm = new MySQLManager();
+      boolean doAuth = msm.getAuth(prefix);
+      return doAuth;
+    } catch (Exception e) {
+      System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+      e.printStackTrace();
+      return true;
+    }
   }
 
   // Retrieve coordinates from location object
@@ -3624,10 +3885,9 @@ public class ApiV1Resource {
     @Override
     public void run() {
       try {
-        ClientConfig config = new ClientConfig();
-        Client client = ClientBuilder.newClient(config);
+        Client client = ClientBuilder.newClient(getWtcCfg());
         WebTarget targetServiceMap = client.target(UriBuilder.fromUri(url).build());
-        Response r = null;
+        Response r;
         if (this.referer == null) {
           r = targetServiceMap.request().header("X-Forwarded-For", httpRequestForwardedFor).get();
         } else {
@@ -3649,31 +3909,51 @@ public class ApiV1Resource {
   }
 
   private String getFirstStop(String route) throws Exception {
-    Response response = getTplBusStops(route, "false", "", null);
-    String txtResponse = response.readEntity(String.class);
-    JSONObject jResponse = new JSONObject(txtResponse);
-    JSONArray features = jResponse.getJSONObject("BusStops").getJSONArray("features");
-    String tmp = null;
-    for (int i = 0; i < features.length(); i++) {
-      if (tmp == null || ((JSONObject) features.get(i)).getString("serviceUri").compareTo(tmp) < 0) {
-        tmp = ((JSONObject) features.get(i)).getString("serviceUri");
-      }
+    String txtResponse = null;
+    try {
+        Response response = getTplBusStops(route, "false", "", null);
+        txtResponse = response.readEntity(String.class);
+        JSONObject jResponse = new JSONObject(txtResponse);
+        JSONArray features = jResponse.getJSONObject("BusStops").getJSONArray("features");
+        String tmp = null;
+        for (int i = 0; i < features.length(); i++) {
+          if (tmp == null || ((JSONObject) features.get(i)).getString("serviceUri").compareTo(tmp) < 0) {
+            tmp = ((JSONObject) features.get(i)).getString("serviceUri");
+          }
+        }
+        return tmp;
     }
-    return tmp;
+    catch(JSONException je) {
+        System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+        je.printStackTrace();
+        System.out.println("HERE IS THE JSON THAT GENERATED THE ERROR:");          
+        System.out.println(txtResponse);
+        throw je;
+    } 
   }
 
   private String getLastStop(String route) throws Exception {
-    Response response = getTplBusStops(route, "false", "", null);
-    String txtResponse = response.readEntity(String.class);
-    JSONObject jResponse = new JSONObject(txtResponse);
-    JSONArray features = jResponse.getJSONObject("BusStops").getJSONArray("features");
-    String tmp = null;
-    for (int i = 0; i < features.length(); i++) {
-      if (tmp == null || ((JSONObject) features.get(i)).getString("serviceUri").compareTo(tmp) > 0) {
-        tmp = ((JSONObject) features.get(i)).getString("serviceUri");
-      }
+    String txtResponse = null;
+    try {    
+        Response response = getTplBusStops(route, "false", "", null);
+        txtResponse = response.readEntity(String.class);
+        JSONObject jResponse = new JSONObject(txtResponse);
+        JSONArray features = jResponse.getJSONObject("BusStops").getJSONArray("features");
+        String tmp = null;
+        for (int i = 0; i < features.length(); i++) {
+          if (tmp == null || ((JSONObject) features.get(i)).getString("serviceUri").compareTo(tmp) > 0) {
+            tmp = ((JSONObject) features.get(i)).getString("serviceUri");
+          }
+        }
+        return tmp;
     }
-    return tmp;
+    catch(JSONException je) {
+        System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+        je.printStackTrace();
+        System.out.println("HERE IS THE JSON THAT GENERATED THE ERROR:");          
+        System.out.println(txtResponse);
+        throw je;
+    }         
   }
 
   @SuppressWarnings("deprecation")
@@ -3724,13 +4004,20 @@ public class ApiV1Resource {
             // If no valid responses arrived...
     if (collections.isEmpty()) {
       if (allResponses.size() == 1 && allResponseCodes.size() == 1) {
+        String plainResponse = null;
         try {
           Iterator<String> PlainResponseCodesIterator = allResponseCodes.iterator();
           Iterator<String> PlainResponsesIterator = allResponses.iterator();
           String responseCode = PlainResponseCodesIterator.next();
-          String plainResponse = PlainResponsesIterator.next();
+          plainResponse = PlainResponsesIterator.next();
           return Response.ok(new JSONObject(plainResponse).toString(4), MediaType.APPLICATION_JSON).header("Access-Control-Allow-Origin", "*").status(Integer.parseInt(responseCode)).build();
-        } catch (Exception e) {
+        } catch(JSONException je) {
+            System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+            je.printStackTrace();
+            System.out.println("HERE IS THE JSON THAT GENERATED THE ERROR:");          
+            System.out.println(plainResponse);
+            return Response.status(500).build();
+        }   catch (Exception e) {
           System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
             e.printStackTrace();
           return Response.status(500).build();
@@ -3742,9 +4029,17 @@ public class ApiV1Resource {
 
             // If just one valid response arrived...
     if (collections.size() == 1) {
+      String collections0 = null;
       try {
-        return Response.ok(new JSONObject(collections.get(0)).toString(4), MediaType.APPLICATION_JSON).header("Access-Control-Allow-Origin", "*").build();
-      } catch (Exception e) {
+        collections0 = collections.get(0);
+        return Response.ok(new JSONObject(collections0).toString(4), MediaType.APPLICATION_JSON).header("Access-Control-Allow-Origin", "*").build();
+      } catch(JSONException je) {
+            System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+            je.printStackTrace();
+            System.out.println("HERE IS THE JSON THAT GENERATED THE ERROR:");          
+            System.out.println(collections0);
+            return Response.status(500).build();
+        } catch (Exception e) {
         System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
           e.printStackTrace();
         return Response.status(500).build();
@@ -3760,7 +4055,12 @@ public class ApiV1Resource {
         for (int i = 0; i < jEvents.length(); i++) {
           events.add((JSONObject) jEvents.get(i));
         }
-      } catch (Exception e) {
+      } catch(JSONException je) {
+            System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+            je.printStackTrace();
+            System.out.println("HERE IS THE JSON THAT GENERATED THE ERROR:");          
+            System.out.println(collection);
+        } catch (Exception e) {
         System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
           e.printStackTrace();
       }
@@ -3841,8 +4141,7 @@ public class ApiV1Resource {
     }
     httpRequestForwardedFor += ipAddressRequestCameFrom;
 
-    ClientConfig config = new ClientConfig();
-    Client client = ClientBuilder.newClient(config);
+    Client client = ClientBuilder.newClient(getWtcCfg());
     WebTarget targetServiceMap = client.target(UriBuilder.fromUri(SMQUERY).build());
     if (requestContext.getHeader("Referer") == null) {
       return targetServiceMap.request().header("X-Forwarded-For", httpRequestForwardedFor).get();
@@ -3851,6 +4150,122 @@ public class ApiV1Resource {
     }
 
   }
+  
+    @SuppressWarnings("deprecation")
+    @Path("/iot/move")
+    @POST
+    @Consumes({MediaType.APPLICATION_JSON})
+    public Response iotMove(@QueryParam("accessToken") String accessToken, String json) {
+        
+        try {
+            
+            // Authorization
+            
+            String authorization = requestContext.getHeader("Authorization");
+            if (authorization == null && accessToken != null && !accessToken.isEmpty()) {
+                authorization = "bearer " + accessToken;
+            }
+    
+            // Forwarded for...
+            
+            String httpRequestForwardedFor = "";
+            if (requestContext.getHeader("X-Forwarded-For") != null && !requestContext.getHeader("X-Forwarded-For").isEmpty()) {
+                httpRequestForwardedFor += requestContext.getHeader("X-Forwarded-For") + ",";
+            }
+            httpRequestForwardedFor += requestContext.getRemoteAddr();
+            
+            // Forward...
+            
+            JSONObject obj = new JSONObject(json);
+            
+            MySQLManager store = new MySQLManager();
+            String idOfSMwithUri = store.getSMIdFromServiceUriCache(obj.getString("uri"));
+
+            if (idOfSMwithUri != null) { // If the device URI is cached
+                try {
+                    final String SMQUERY = store.getUrlPrefixFromSMid(idOfSMwithUri) + "/api/v1/iot/move?ssm=yes";
+                    Client client = ClientBuilder.newClient(getWtcCfg());
+                    WebTarget targetServiceMap = client.target(UriBuilder.fromUri(SMQUERY).build());
+                    Response r;
+                    if (requestContext.getHeader("Referer") == null) {
+                      if (authorization == null || !doAuth(store.getUrlPrefixFromSMid(idOfSMwithUri))) { r = targetServiceMap.request().header("X-Forwarded-For", httpRequestForwardedFor).post(Entity.json(json)); }
+                      else { r = targetServiceMap.request().header("X-Forwarded-For", httpRequestForwardedFor).header("Authorization", authorization).post(Entity.json(json)); } 
+                    } else {
+                      if (authorization == null || !doAuth(store.getUrlPrefixFromSMid(idOfSMwithUri))) {  r = targetServiceMap.request().header("X-Forwarded-For", httpRequestForwardedFor).header("Referer", requestContext.getHeader("Referer")).post(Entity.json(json)); }
+                      else {  r = targetServiceMap.request().header("X-Forwarded-For", httpRequestForwardedFor).header("Referer", requestContext.getHeader("Referer")).header("Authorization", authorization).post(Entity.json(json)); }
+                    }
+                    return Response.ok(r.readEntity(String.class), MediaType.TEXT_PLAIN).header("Access-Control-Allow-Origin", "*").status(r.getStatus()).build();
+                } catch (Exception e) {
+                    System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+                    e.printStackTrace();
+                }
+            }
+
+            try {
+              List<ServiceMap> sMs = store.getAll("/api/v1/iot/move", "text");
+              HashSet<String> responses = new HashSet<>();
+              HashSet<String> responseCodes = new HashSet<>();
+              String tmpc = null;
+              for (int i = 0; i < sMs.size(); i++) {
+                final String SMQUERY = store.getUrlPrefixFromSMid(sMs.get(i).getId()) + "/api/v1/iot/move?ssm=yes";
+                Client client = ClientBuilder.newClient(getWtcCfg());
+                WebTarget targetServiceMap = client.target(UriBuilder.fromUri(SMQUERY).build());
+                Response r;
+                if (requestContext.getHeader("Referer") == null) {
+                  if (authorization == null || !doAuth(store.getUrlPrefixFromSMid(sMs.get(i).getId())) ) {  r = targetServiceMap.request().header("X-Forwarded-For", httpRequestForwardedFor).post(Entity.json(json)); }
+                  else {  r = targetServiceMap.request().header("X-Forwarded-For", httpRequestForwardedFor).header("Authorization", authorization).post(Entity.json(json)); } 
+                } else {
+                    if (authorization == null || !doAuth(store.getUrlPrefixFromSMid(sMs.get(i).getId())) ) {  r = targetServiceMap.request().header("X-Forwarded-For", httpRequestForwardedFor).header("Referer", requestContext.getHeader("Referer")).post(Entity.json(json)); }
+                    else {  r = targetServiceMap.request().header("X-Forwarded-For", httpRequestForwardedFor).header("Referer", requestContext.getHeader("Referer")).header("Authorization", authorization).post(Entity.json(json)); }
+                }
+                String code = String.valueOf(r.getStatus());
+                String response = r.readEntity(String.class).replaceAll("[\r]", "").replaceAll("[\n]", "");
+                responseCodes.add(code);
+                responses.add(response);
+                if (r.getStatus() == 200 && "DONE".equals(response)) {
+                  store.insertCache(obj.getString("uri"), sMs.get(i).getId());
+                  return Response.ok(response, MediaType.TEXT_PLAIN).header("Access-Control-Allow-Origin", "*").build();
+                }
+                else {
+                    if(tmpc == null || r.getStatus() != 400) {
+                        tmpc = sMs.get(i).getId();
+                    }
+                }
+              }
+              if (responses.size() == 1 && responseCodes.size() == 1) {
+                store.insertCache(obj.getString("uri"), sMs.get(0).getId(), true);
+                Iterator<String> PlainResponseCodesIterator = responseCodes.iterator();
+                Iterator<String> PlainResponsesIterator = responses.iterator();
+                String responseCode = PlainResponseCodesIterator.next();
+                String plainResponse = PlainResponsesIterator.next();
+                return Response.ok(plainResponse, MediaType.TEXT_PLAIN).header("Access-Control-Allow-Origin", "*").status(Integer.parseInt(responseCode)).build();
+              }
+              else {
+                  store.insertCache(obj.getString("uri"), tmpc, true);
+                  return Response.status(500).build();
+              }
+            } catch (Exception e) {
+              System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+                e.printStackTrace();
+            }
+
+            return Response.status(500).build();
+
+        }
+        catch(JSONException je) {
+            System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+            je.printStackTrace();
+            System.out.println("HERE IS THE JSON THAT GENERATED THE ERROR:");          
+            System.out.println(json);
+            return Response.status(500).build();
+        } 
+        catch(Exception e) {
+            System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+            e.printStackTrace();
+            return Response.status(500).build();
+        }
+        
+    }
 
   public static java.util.Date parseDate(String date) {
     java.text.SimpleDateFormat df1 = new java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSXXX");
@@ -3866,4 +4281,326 @@ public class ApiV1Resource {
     }
     return r;
   }
+  
+    @SuppressWarnings("deprecation")
+    @Path("/values/typicaltrends")
+    @POST
+    @Consumes({MediaType.APPLICATION_JSON})
+    public Response writeTypicalTrends(String json) {
+        
+        // Getting access token
+        
+        String authorization = requestContext.getHeader("Authorization");
+        if(authorization == null || authorization.isEmpty()) {
+            return Response.status(401).entity("Authenticating is mandatory. Add an Authorization header to your request, with value \"Bearer [your access token]\".").header("Content-Type", "text/plain").header("Cache-Control", "no-cache").build();
+        }
+        
+        try {
+            
+            // Getting service URI 
+            
+            JSONObject obj = new JSONObject(json);
+            if(!obj.has("serviceUri")) {
+                return Response.status(400).entity("Although the request body is a valid JSON object, it does not include the mandatory serviceUri field.").header("Content-Type", "text/plain").header("Cache-Control", "no-cache").build();
+            }          
+            
+            // Forwarded for...
+            
+            String httpRequestForwardedFor = "";
+            if (requestContext.getHeader("X-Forwarded-For") != null && !requestContext.getHeader("X-Forwarded-For").isEmpty()) {
+                httpRequestForwardedFor += requestContext.getHeader("X-Forwarded-For") + ",";
+            }
+            httpRequestForwardedFor += requestContext.getRemoteAddr();
+            
+            // Forward...
+            
+            MySQLManager store = new MySQLManager();
+            String idOfSMwithUri = store.getSMIdFromServiceUriCache(obj.getString("serviceUri"));
+
+            if (idOfSMwithUri != null) { // If the device URI is cached
+                try {
+                    final String SMQUERY = store.getUrlPrefixFromSMid(idOfSMwithUri) + "/api/v1/values/typicaltrends?ssm=yes";
+                    Client client = ClientBuilder.newClient(getWtcCfg());
+                    WebTarget targetServiceMap = client.target(UriBuilder.fromUri(SMQUERY).build());
+                    Response r;
+                    if (requestContext.getHeader("Referer") == null) {                      
+                      r = targetServiceMap.request().header("X-Forwarded-For", httpRequestForwardedFor).header("Authorization",authorization).post(Entity.json(json)); 
+                    } else {                      
+                      r = targetServiceMap.request().header("X-Forwarded-For", httpRequestForwardedFor).header("Referer", requestContext.getHeader("Referer")).header("Authorization",authorization).post(Entity.json(json)); 
+                    }
+                    return Response.ok(r.readEntity(String.class), r.getStatus() == 200 ? MediaType.TEXT_PLAIN : MediaType.APPLICATION_JSON).header("Access-Control-Allow-Origin", "*").status(r.getStatus()).build();
+                } catch (Exception e) {
+                    System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+                    e.printStackTrace();
+                }
+            }
+
+            try {
+              List<ServiceMap> sMs = store.getAll("/api/v1/values/typicaltrends", "json");
+              HashSet<String> responses = new HashSet<>();
+              HashSet<String> responseCodes = new HashSet<>();
+              String tmpc = null;
+              for (int i = 0; i < sMs.size(); i++) {
+                final String SMQUERY = store.getUrlPrefixFromSMid(sMs.get(i).getId()) + "/api/v1/values/typicaltrends?ssm=yes";
+                Client client = ClientBuilder.newClient(getWtcCfg());
+                WebTarget targetServiceMap = client.target(UriBuilder.fromUri(SMQUERY).build());
+                Response r;
+                if (requestContext.getHeader("Referer") == null) {                  
+                    r = targetServiceMap.request().header("X-Forwarded-For", httpRequestForwardedFor).header("Authorization",authorization).post(Entity.json(json)); 
+                } else {                    
+                    r = targetServiceMap.request().header("X-Forwarded-For", httpRequestForwardedFor).header("Referer", requestContext.getHeader("Referer")).header("Authorization",authorization).post(Entity.json(json));
+                }
+                String code = String.valueOf(r.getStatus());
+                String response = r.readEntity(String.class).replaceAll("[\r]", "").replaceAll("[\n]", "");
+                responseCodes.add(code);
+                responses.add(response);
+                if (r.getStatus() == 200) {
+                  store.insertCache(obj.getString("serviceUri"), sMs.get(i).getId());
+                  return Response.ok(response, MediaType.TEXT_PLAIN).header("Access-Control-Allow-Origin", "*").build();
+                }
+                else {
+                    if(tmpc == null || r.getStatus() != 400) {
+                        tmpc = sMs.get(i).getId();
+                    }
+                }
+              }
+              if (responses.size() == 1 && responseCodes.size() == 1) {
+                store.insertCache(obj.getString("serviceUri"), sMs.get(0).getId(), true);
+                Iterator<String> PlainResponseCodesIterator = responseCodes.iterator();
+                Iterator<String> PlainResponsesIterator = responses.iterator();
+                String responseCode = PlainResponseCodesIterator.next();
+                String plainResponse = PlainResponsesIterator.next();
+                return Response.ok(plainResponse, MediaType.APPLICATION_JSON).header("Access-Control-Allow-Origin", "*").status(Integer.parseInt(responseCode)).build();
+              }
+              else {
+                  store.insertCache(obj.getString("serviceUri"), tmpc, true);
+                  return Response.status(500).build();
+              }
+            } catch (Exception e) {
+              System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+                e.printStackTrace();
+            }
+
+            return Response.status(500).build();
+
+      } catch (JSONException ex) {
+          System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+          System.out.println("The following response is going to be returned to the useR: "+"The request body seems not to be a valid JSON object. The following error occurred while parsing it: "+ex.getMessage());
+          ex.printStackTrace();
+          System.out.println("HERE IS THE JSON THAT GENERATED THE ERROR:");          
+          System.out.println(json);
+          return Response.status(400).entity("The request body seems not to be a valid JSON object. The following error occurred while parsing it: "+ex.getMessage()).header("Content-Type", "text/plain").header("Cache-Control", "no-cache").build();
+      } catch (Exception ex) {
+          System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));          
+          ex.printStackTrace();
+          return Response.status(500).build();
+      }
+
+    }
+    
+    @SuppressWarnings("deprecation")
+    @Path("/values/typicaltrends")
+    @GET
+    public Response getTypicalTrends(
+        @QueryParam("serviceUri") String serviceUri,
+        @QueryParam("valueName") String valueName,
+        @QueryParam("trendType") String trendType,
+        @QueryParam("atDate") String atDate,
+        @QueryParam("computationType") String computationType,
+        @QueryParam("from") String from,
+        @QueryParam("to") String to
+    ) {        
+        String authorization = requestContext.getHeader("Authorization");        
+        String ipAddressRequestCameFrom = requestContext.getRemoteAddr();        
+        try {
+            String completePathAndQuery = "/api/v1/values/typicaltrends?ssm=yes&serviceUri=" + URLEncoder.encode(serviceUri, "UTF-8")
+                    + (valueName == null || valueName.isEmpty() ? "" : "&valueName=" + URLEncoder.encode(valueName, "UTF-8"))
+                    + (trendType == null || trendType.isEmpty() ? "" : "&trendType=" + URLEncoder.encode(trendType, "UTF-8"))
+                    + (atDate == null || atDate.isEmpty() ? "" : "&atDate=" + URLEncoder.encode(atDate, "UTF-8"))
+                    + (computationType == null || computationType.isEmpty() ? "" : "&computationType=" + URLEncoder.encode(computationType, "UTF-8"))
+                    + (from == null || from.isEmpty() ? "" : "&from=" + URLEncoder.encode(from, "UTF-8"))
+                    + (to == null || to.isEmpty() ? "" : "&to=" + URLEncoder.encode(to, "UTF-8"));
+            String httpRequestForwardedFor = "";
+            if (requestContext.getHeader("X-Forwarded-For") != null && !requestContext.getHeader("X-Forwarded-For").isEmpty()) {
+              httpRequestForwardedFor += requestContext.getHeader("X-Forwarded-For") + ",";
+            }
+            httpRequestForwardedFor += ipAddressRequestCameFrom;
+            return getTypicalTrend(serviceUri, "json", "/api/v1/values/typicaltrends", completePathAndQuery, httpRequestForwardedFor, authorization);
+        } catch (Exception ex) {        
+            System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));          
+            ex.printStackTrace();
+            return Response.status(500).build();
+        }        
+    }
+    
+    public Response getTypicalTrend(String serviceUri, String format, String api, String completePathAndQuery, String httpRequestForwardedFor, String authorization) throws Exception {      
+        
+        // Check to see if the feature is cached, in which case retrieve the service map where it can be found is also cached and can be retrieved without polling all service maps
+        try {
+
+            MySQLManager store = new MySQLManager();
+            String idOfSMwithUri = store.getSMIdFromServiceUriCache(serviceUri);
+
+            if (idOfSMwithUri != null && !iterateAll()) { // If it is cached
+                String rstr = null;
+                try {
+                    final String SMQUERY = store.getUrlPrefixFromSMid(idOfSMwithUri) + completePathAndQuery;
+                    Client client = ClientBuilder.newClient(getWtcCfg());
+                    WebTarget targetServiceMap = client.target(UriBuilder.fromUri(SMQUERY).build());
+                    Response r;
+                    if (requestContext.getHeader("Referer") == null) {
+                        if (authorization == null || !doAuth(store.getUrlPrefixFromSMid(idOfSMwithUri))) { r = targetServiceMap.request().header("X-Forwarded-For", httpRequestForwardedFor).get(); }
+                        else { r = targetServiceMap.request().header("X-Forwarded-For", httpRequestForwardedFor).header("Authorization", authorization).get(); } 
+                    } else {
+                        if (authorization == null || !doAuth(store.getUrlPrefixFromSMid(idOfSMwithUri))) {  r = targetServiceMap.request().header("X-Forwarded-For", httpRequestForwardedFor).header("Referer", requestContext.getHeader("Referer")).get(); }
+                        else {  r = targetServiceMap.request().header("X-Forwarded-For", httpRequestForwardedFor).header("Referer", requestContext.getHeader("Referer")).header("Authorization", authorization).get(); }
+                    }
+                    rstr = r.readEntity(String.class);
+                    return Response.ok("html".equals(format) ? goThere(store.getUrlPrefixFromSMid(idOfSMwithUri), rstr) : new JSONArray(rstr).toString(4), "html".equals(format) ? MediaType.TEXT_HTML : MediaType.APPLICATION_JSON).header("Access-Control-Allow-Origin", "*").status(r.getStatus()).build();
+                } catch(JSONException je) {
+                    System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+                    je.printStackTrace();
+                    System.out.println("HERE IS THE JSON THAT GENERATED THE ERROR:");          
+                    System.out.println(rstr);
+                } catch (Exception e) {
+                    System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+                    e.printStackTrace();
+                }
+            }
+
+            String response = null;
+            String plainResponse = null;
+            try {
+                Response finalResponse = null;
+                ArrayList<String> validRequests = new ArrayList<>();
+                List<ServiceMap> sMs = store.getAll(api, format);
+                HashSet<String> responses = new HashSet<>();
+                HashSet<String> responseCodes = new HashSet<>();
+                String tmpc = null;
+                for (int i = 0; i < sMs.size(); i++) {
+                    final String SMQUERY = store.getUrlPrefixFromSMid(sMs.get(i).getId()) + completePathAndQuery;
+                    Client client = ClientBuilder.newClient(getWtcCfg());
+                    WebTarget targetServiceMap = client.target(UriBuilder.fromUri(SMQUERY).build());
+                    Response r;
+                    if (requestContext.getHeader("Referer") == null) {
+                        if (authorization == null || !doAuth(store.getUrlPrefixFromSMid(sMs.get(i).getId())) ) {  r = targetServiceMap.request().header("X-Forwarded-For", httpRequestForwardedFor).get(); }
+                        else {  r = targetServiceMap.request().header("X-Forwarded-For", httpRequestForwardedFor).header("Authorization", authorization).get(); } 
+                    } else {
+                        if (authorization == null || !doAuth(store.getUrlPrefixFromSMid(sMs.get(i).getId())) ) {  r = targetServiceMap.request().header("X-Forwarded-For", httpRequestForwardedFor).header("Referer", requestContext.getHeader("Referer")).get(); }
+                        else {  r = targetServiceMap.request().header("X-Forwarded-For", httpRequestForwardedFor).header("Referer", requestContext.getHeader("Referer")).header("Authorization", authorization).get(); }
+                    }
+                    String code = String.valueOf(r.getStatus());
+                    response = r.readEntity(String.class).replaceAll("[\r]", "").replaceAll("[\n]", "");
+                    responseCodes.add(code);
+                    responses.add(response);
+                    if (r.getStatus() == 200) {
+                        if(!iterateAll()) store.insertCache(serviceUri, sMs.get(i).getId());
+                        finalResponse = Response.ok("html".equals(format) ? goThere(store.getUrlPrefixFromSMid(sMs.get(i).getId()), response) : new JSONArray(response).toString(4), "html".equals(format) ? MediaType.TEXT_HTML : MediaType.APPLICATION_JSON).header("Access-Control-Allow-Origin", "*").build();
+                        if(!iterateAll()) return finalResponse;
+                        else validRequests.add(SMQUERY);
+                    }
+                    else {
+                        if(tmpc == null || r.getStatus() != 400) {
+                            tmpc = sMs.get(i).getId();
+                        }
+                    }
+                }
+                if(finalResponse != null) {
+                    if(validRequests.size() > 1) {
+                        System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+                        System.out.println("ALL OF THE FOLLOWING REQUESTS OF TYPICAL TRENDS HAVE RECEIVED A VALID RESPONSE.");
+                        System.out.println("THIS IS UNEXPECTED BECAUSE WE ARE MAKING A QUERY FOR A SPECIFIC DEVICE THAT IS EXPECTED TO BE RETURNED BY ONE SERVICE MAP ONLY.");
+                        System.out.println("THE LAST OF THE VALID RESPONSES IS GOING TO BE RETURNED AS-IS TO THE USER.");
+                        for(String validRequest: validRequests) System.out.println(validRequest);
+                    }
+                    return finalResponse;
+                }
+                if (responses.size() == 1 && responseCodes.size() == 1) {
+                    if(!iterateAll()) store.insertCache(serviceUri, sMs.get(0).getId(), true);
+                    Iterator<String> PlainResponseCodesIterator = responseCodes.iterator();
+                    Iterator<String> PlainResponsesIterator = responses.iterator();
+                    String responseCode = PlainResponseCodesIterator.next();
+                    plainResponse = PlainResponsesIterator.next();
+                    return Response.ok("html".equals(format) ? goThere(store.getUrlPrefixFromSMid(sMs.get(0).getId()), plainResponse) : new JSONObject(plainResponse).toString(4), "html".equals(format) ? MediaType.TEXT_HTML : MediaType.APPLICATION_JSON).header("Access-Control-Allow-Origin", "*").status(Integer.parseInt(responseCode)).build();
+                }
+                else {
+                    if(!iterateAll()) store.insertCache(serviceUri, tmpc, true);
+                    return Response.status(500).build();
+                }
+            } catch(JSONException je) {
+                System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+                je.printStackTrace();
+                System.out.println("HERE IS THE JSON THAT GENERATED THE ERROR:");          
+                System.out.println(plainResponse!=null?plainResponse:response);
+            } catch (Exception e) {
+                System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+                e.printStackTrace();
+            }
+
+            return Response.status(500).build();
+
+        } catch (Exception e) {
+          System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+            e.printStackTrace();
+          return Response.status(500).build();
+        }
+
+    }
+    
+    private boolean iterateAll() {
+        try {
+            DocumentBuilderFactory docBuilderFactory = DocumentBuilderFactory.newInstance();
+            DocumentBuilder docBuilder = docBuilderFactory.newDocumentBuilder();
+            Document doc = docBuilder.parse(new File("settings.xml"));
+            doc.getDocumentElement().normalize();          
+            NodeList listOfSettings = doc.getElementsByTagName("label");          
+            for (int temp = 0; temp < listOfSettings.getLength(); temp++) {
+                Node nNode = listOfSettings.item(temp);
+                if (nNode.getNodeType() == Node.ELEMENT_NODE) {
+                    Element eElement = (Element) nNode;
+                    if(eElement.getAttribute("id").equalsIgnoreCase("typicaltrends")) {
+                        return "inspect_all".equals(eElement.getElementsByTagName("value").item(0).getTextContent());
+                    }
+                }
+            }
+            return false;
+        } catch (ParserConfigurationException | SAXException | IOException ex) {
+            System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+            ex.printStackTrace();
+            return false;
+        }
+                
+    }
+    
+    private static ClientConfig getWtcCfg() {        
+        int webtConnTmout = 60000;
+        int webtReadTmout = 60000;        
+        try {
+            DocumentBuilderFactory docBuilderFactory = DocumentBuilderFactory.newInstance();
+            DocumentBuilder docBuilder = docBuilderFactory.newDocumentBuilder();
+            Document doc = docBuilder.parse(new File("settings.xml"));
+            doc.getDocumentElement().normalize();          
+            NodeList listOfSettings = doc.getElementsByTagName("label");          
+            for (int temp = 0; temp < listOfSettings.getLength(); temp++) {
+                Node nNode = listOfSettings.item(temp);
+                if (nNode.getNodeType() == Node.ELEMENT_NODE) {
+                    Element eElement = (Element) nNode;
+                    if(eElement.getAttribute("id").equalsIgnoreCase("webtConnTmout")) {
+                        webtConnTmout = Integer.parseInt(eElement.getElementsByTagName("value").item(0).getTextContent());
+                    }
+                    if(eElement.getAttribute("id").equalsIgnoreCase("webtReadTmout")) {
+                        webtReadTmout = Integer.parseInt(eElement.getElementsByTagName("value").item(0).getTextContent());
+                    }
+                }
+            }
+        } catch (ParserConfigurationException | SAXException | IOException ex) {
+            System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+            ex.printStackTrace();
+        }            
+        ClientConfig config = new ClientConfig();
+        config = config.property(ClientProperties.CONNECT_TIMEOUT, webtConnTmout);
+        config = config.property(ClientProperties.READ_TIMEOUT, webtReadTmout);
+        return config;
+    }
+    
 }

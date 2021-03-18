@@ -107,6 +107,8 @@ public class MySQLManager {
             } catch (SQLException e) {
                 System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
                 e.printStackTrace();
+                System.out.println("THE SUBMITTED QUERY FOLLOWS (REMARK: IF THE FORMAL PARAMETERS ARE NOT REPLACED BY THE ACTUAL PARAMETERS IN THE QUERY BELOW HERE, IT IS VERY LIKELY THAT A CONNECTION ISSUE OCCURRED BEFORE THAT THE QUERY COULD BE ACTUALLY SUBMITTED):");
+                System.out.println(preparedStatement);
                     throw e;
             } finally {
                 close(connection, preparedStatement, resultSet);
@@ -126,6 +128,8 @@ public class MySQLManager {
             } catch (SQLException e) {
                 System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
                 e.printStackTrace();
+                System.out.println("THE SUBMITTED QUERY FOLLOWS (REMARK: IF THE FORMAL PARAMETERS ARE NOT REPLACED BY THE ACTUAL PARAMETERS IN THE QUERY BELOW HERE, IT IS VERY LIKELY THAT A CONNECTION ISSUE OCCURRED BEFORE THAT THE QUERY COULD BE ACTUALLY SUBMITTED):");
+                System.out.println(preparedStatement);
                     throw e;
             } finally {
                     close(connection, preparedStatement, resultSet);
@@ -156,6 +160,8 @@ public class MySQLManager {
             } catch (Exception e) {
                 System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
                 e.printStackTrace();
+                System.out.println("THE SUBMITTED QUERY FOLLOWS (REMARK: IF THE FORMAL PARAMETERS ARE NOT REPLACED BY THE ACTUAL PARAMETERS IN THE QUERY BELOW HERE, IT IS VERY LIKELY THAT A CONNECTION ISSUE OCCURRED BEFORE THAT THE QUERY COULD BE ACTUALLY SUBMITTED):");
+                System.out.println(preparedStatement);
                     throw e;
             } finally {
                     close(connection, preparedStatement, resultSet);
@@ -174,7 +180,7 @@ public class MySQLManager {
                 connection = ConnectionPool.getConnection(new Object(){}.getClass().getEnclosingMethod().getName());
 
                 preparedStatement = connection
-                               .prepareStatement("SELECT * FROM "  + CACHETABLE + " WHERE serviceUri= ? and (temporary is null or ? < cast(insertTime as unsigned)+?);");
+                               .prepareStatement("SELECT * FROM "  + CACHETABLE + " WHERE serviceUri= ? and (temporary is null or temporary = 0 or ? < cast(insertTime as unsigned)+?);");
 
                 preparedStatement.setString(1, uri);
                 preparedStatement.setInt(2, (int) (System.currentTimeMillis() / 1000L));
@@ -186,6 +192,16 @@ public class MySQLManager {
 
                 while (resultSet.next()) {
                         smList.add(resultSet.getString("idServiceMap"));
+                }
+                
+                if(smList.size() > 1) {
+                    try {
+                        preparedStatement = connection.prepareStatement("DELETE FROM "  + CACHETABLE + " WHERE serviceUri = ? ");
+                        preparedStatement.setString(1, uri);
+                        preparedStatement.executeUpdate();
+                    }
+                    catch(Exception ee) {}
+                    return null;
                 }
 
                 if (!smList.isEmpty()) {
@@ -201,6 +217,8 @@ public class MySQLManager {
             catch (Exception e) {
                 System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
                 e.printStackTrace();
+                System.out.println("THE SUBMITTED QUERY FOLLOWS (REMARK: IF THE FORMAL PARAMETERS ARE NOT REPLACED BY THE ACTUAL PARAMETERS IN THE QUERY BELOW HERE, IT IS VERY LIKELY THAT A CONNECTION ISSUE OCCURRED BEFORE THAT THE QUERY COULD BE ACTUALLY SUBMITTED):");
+                System.out.println(preparedStatement);
             } 
             finally {
                 close(connection, preparedStatement, resultSet);
@@ -234,6 +252,8 @@ public class MySQLManager {
             } catch (Exception e) {
                 System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));    
                 e.printStackTrace();
+                System.out.println("THE SUBMITTED QUERY FOLLOWS (REMARK: IF THE FORMAL PARAMETERS ARE NOT REPLACED BY THE ACTUAL PARAMETERS IN THE QUERY BELOW HERE, IT IS VERY LIKELY THAT A CONNECTION ISSUE OCCURRED BEFORE THAT THE QUERY COULD BE ACTUALLY SUBMITTED):");
+                System.out.println(preparedStatement);
                     throw e;
             } finally {
                     close(connection, preparedStatement, resultSet);
@@ -262,6 +282,8 @@ public class MySQLManager {
             } catch (Exception e) {
                 System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));    
                 e.printStackTrace();
+                System.out.println("THE SUBMITTED QUERY FOLLOWS (REMARK: IF THE FORMAL PARAMETERS ARE NOT REPLACED BY THE ACTUAL PARAMETERS IN THE QUERY BELOW HERE, IT IS VERY LIKELY THAT A CONNECTION ISSUE OCCURRED BEFORE THAT THE QUERY COULD BE ACTUALLY SUBMITTED):");
+                System.out.println(preparedStatement);             
                     throw e;
             } finally {
                     close(connection, preparedStatement, resultSet);
@@ -301,6 +323,8 @@ public class MySQLManager {
             } catch (SQLException e) {
                 System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));    
                 e.printStackTrace();
+                System.out.println("THE SUBMITTED QUERY FOLLOWS (REMARK: IF THE FORMAL PARAMETERS ARE NOT REPLACED BY THE ACTUAL PARAMETERS IN THE QUERY BELOW HERE, IT IS VERY LIKELY THAT A CONNECTION ISSUE OCCURRED BEFORE THAT THE QUERY COULD BE ACTUALLY SUBMITTED):");
+                System.out.println(preparedStatement);
                     throw e;
             } finally {
                     close(connection, preparedStatement, resultSet);
@@ -336,6 +360,8 @@ public class MySQLManager {
             } catch (SQLException e) {
                 System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));    
                 e.printStackTrace();
+                System.out.println("THE SUBMITTED QUERY FOLLOWS (REMARK: IF THE FORMAL PARAMETERS ARE NOT REPLACED BY THE ACTUAL PARAMETERS IN THE QUERY BELOW HERE, IT IS VERY LIKELY THAT A CONNECTION ISSUE OCCURRED BEFORE THAT THE QUERY COULD BE ACTUALLY SUBMITTED):");
+                System.out.println(preparedStatement);
                     throw e;
             } finally {
                     close(connection, preparedStatement, resultSet);
@@ -367,6 +393,8 @@ public class MySQLManager {
             } catch (SQLException e) {
                 System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));    
                 e.printStackTrace();
+                System.out.println("THE SUBMITTED QUERY FOLLOWS (REMARK: IF THE FORMAL PARAMETERS ARE NOT REPLACED BY THE ACTUAL PARAMETERS IN THE QUERY BELOW HERE, IT IS VERY LIKELY THAT A CONNECTION ISSUE OCCURRED BEFORE THAT THE QUERY COULD BE ACTUALLY SUBMITTED):");
+                System.out.println(preparedStatement);                
                     throw e;
             } finally {
                     close(connection, preparedStatement, resultSet);
@@ -397,6 +425,8 @@ public class MySQLManager {
             } catch (SQLException e) {
                 System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));    
                 e.printStackTrace();
+                System.out.println("THE SUBMITTED QUERY FOLLOWS (REMARK: IF THE FORMAL PARAMETERS ARE NOT REPLACED BY THE ACTUAL PARAMETERS IN THE QUERY BELOW HERE, IT IS VERY LIKELY THAT A CONNECTION ISSUE OCCURRED BEFORE THAT THE QUERY COULD BE ACTUALLY SUBMITTED):");
+                System.out.println(preparedStatement);                
                     throw e;
             } finally {
                 close(connection, preparedStatement, resultSet);
@@ -424,6 +454,8 @@ public class MySQLManager {
             } catch (SQLException e) {
                 System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));    
                 e.printStackTrace();
+                System.out.println("THE SUBMITTED QUERY FOLLOWS (REMARK: IF THE FORMAL PARAMETERS ARE NOT REPLACED BY THE ACTUAL PARAMETERS IN THE QUERY BELOW HERE, IT IS VERY LIKELY THAT A CONNECTION ISSUE OCCURRED BEFORE THAT THE QUERY COULD BE ACTUALLY SUBMITTED):");
+                System.out.println(preparedStatement);                
                     throw e;
             } finally {
                     close(connection, preparedStatement, resultSet);
@@ -452,6 +484,8 @@ public class MySQLManager {
             } catch (SQLException e) {
                 System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));    
                 e.printStackTrace();
+                System.out.println("THE SUBMITTED QUERY FOLLOWS (REMARK: IF THE FORMAL PARAMETERS ARE NOT REPLACED BY THE ACTUAL PARAMETERS IN THE QUERY BELOW HERE, IT IS VERY LIKELY THAT A CONNECTION ISSUE OCCURRED BEFORE THAT THE QUERY COULD BE ACTUALLY SUBMITTED):");
+                System.out.println(preparedStatement);                
                     throw e;
             } finally {
                 close(connection, preparedStatement, resultSet);
@@ -480,6 +514,8 @@ public class MySQLManager {
             } catch (SQLException e) {
                 System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));    
                 e.printStackTrace();
+                System.out.println("THE SUBMITTED QUERY FOLLOWS (REMARK: IF THE FORMAL PARAMETERS ARE NOT REPLACED BY THE ACTUAL PARAMETERS IN THE QUERY BELOW HERE, IT IS VERY LIKELY THAT A CONNECTION ISSUE OCCURRED BEFORE THAT THE QUERY COULD BE ACTUALLY SUBMITTED):");
+                System.out.println(preparedStatement);                
                     throw e;
             } finally {
                 close(connection, preparedStatement, resultSet);
@@ -511,6 +547,8 @@ public class MySQLManager {
             } catch (SQLException e) {
                 System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));    
                 e.printStackTrace();
+                System.out.println("THE SUBMITTED QUERY FOLLOWS (REMARK: IF THE FORMAL PARAMETERS ARE NOT REPLACED BY THE ACTUAL PARAMETERS IN THE QUERY BELOW HERE, IT IS VERY LIKELY THAT A CONNECTION ISSUE OCCURRED BEFORE THAT THE QUERY COULD BE ACTUALLY SUBMITTED):");
+                System.out.println(preparedStatement);                
                     throw e;
             } finally {
                 close(connection, preparedStatement, resultSet);
@@ -542,6 +580,8 @@ public class MySQLManager {
             } catch (SQLException e) {
                 System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));    
                 e.printStackTrace();
+                System.out.println("THE SUBMITTED QUERY FOLLOWS (REMARK: IF THE FORMAL PARAMETERS ARE NOT REPLACED BY THE ACTUAL PARAMETERS IN THE QUERY BELOW HERE, IT IS VERY LIKELY THAT A CONNECTION ISSUE OCCURRED BEFORE THAT THE QUERY COULD BE ACTUALLY SUBMITTED):");
+                System.out.println(preparedStatement);                
                     throw e;
             } finally {
                 close(connection, preparedStatement, resultSet);
@@ -570,6 +610,8 @@ public class MySQLManager {
             } catch (SQLException e) {
                 System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));    
                 e.printStackTrace();
+                System.out.println("THE SUBMITTED QUERY FOLLOWS (REMARK: IF THE FORMAL PARAMETERS ARE NOT REPLACED BY THE ACTUAL PARAMETERS IN THE QUERY BELOW HERE, IT IS VERY LIKELY THAT A CONNECTION ISSUE OCCURRED BEFORE THAT THE QUERY COULD BE ACTUALLY SUBMITTED):");
+                System.out.println(preparedStatement);                
                     throw e;
             } finally {
                 close(connection, preparedStatement, resultSet);
@@ -597,6 +639,8 @@ public class MySQLManager {
             } catch (Exception e) {
                 System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));   
                 e.printStackTrace();
+                System.out.println("THE SUBMITTED QUERY FOLLOWS (REMARK: IF THE FORMAL PARAMETERS ARE NOT REPLACED BY THE ACTUAL PARAMETERS IN THE QUERY BELOW HERE, IT IS VERY LIKELY THAT A CONNECTION ISSUE OCCURRED BEFORE THAT THE QUERY COULD BE ACTUALLY SUBMITTED):");
+                System.out.println(preparedStatement);                
                 throw e;
             } finally {
                 close(connection, preparedStatement, null);
@@ -623,6 +667,8 @@ public class MySQLManager {
             } catch (Exception e) {
                 System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));       
                 e.printStackTrace();
+                System.out.println("THE SUBMITTED QUERY FOLLOWS (REMARK: IF THE FORMAL PARAMETERS ARE NOT REPLACED BY THE ACTUAL PARAMETERS IN THE QUERY BELOW HERE, IT IS VERY LIKELY THAT A CONNECTION ISSUE OCCURRED BEFORE THAT THE QUERY COULD BE ACTUALLY SUBMITTED):");
+                System.out.println(preparedStatement);                
                     throw e;
             } finally {
                 close(connection, preparedStatement, null);
@@ -650,6 +696,8 @@ public class MySQLManager {
             } catch (Exception e) {
                 System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));       
                 e.printStackTrace();
+                System.out.println("THE SUBMITTED QUERY FOLLOWS (REMARK: IF THE FORMAL PARAMETERS ARE NOT REPLACED BY THE ACTUAL PARAMETERS IN THE QUERY BELOW HERE, IT IS VERY LIKELY THAT A CONNECTION ISSUE OCCURRED BEFORE THAT THE QUERY COULD BE ACTUALLY SUBMITTED):");
+                System.out.println(preparedStatement);                
                     throw e;
             } finally {
                     close(connection, preparedStatement, null);
@@ -700,6 +748,8 @@ public class MySQLManager {
             } catch (Exception e) {
                 System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));       
                 e.printStackTrace();
+                System.out.println("THE SUBMITTED QUERY FOLLOWS (REMARK: IF THE FORMAL PARAMETERS ARE NOT REPLACED BY THE ACTUAL PARAMETERS IN THE QUERY BELOW HERE, IT IS VERY LIKELY THAT A CONNECTION ISSUE OCCURRED BEFORE THAT THE QUERY COULD BE ACTUALLY SUBMITTED):");
+                System.out.println(preparedStatement);                
                     throw e;
             } finally {
                 close(connection, preparedStatement, resultSet);
@@ -721,6 +771,8 @@ public class MySQLManager {
             } catch (Exception e) {
                 System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));       
                 e.printStackTrace();
+                System.out.println("THE SUBMITTED QUERY FOLLOWS (REMARK: IF THE FORMAL PARAMETERS ARE NOT REPLACED BY THE ACTUAL PARAMETERS IN THE QUERY BELOW HERE, IT IS VERY LIKELY THAT A CONNECTION ISSUE OCCURRED BEFORE THAT THE QUERY COULD BE ACTUALLY SUBMITTED):");
+                System.out.println(preparedStatement);                
                     throw e;
             } finally {
                 close(connection, preparedStatement, null);
@@ -746,6 +798,8 @@ public class MySQLManager {
             } catch (Exception e) {
                 System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));       
                 e.printStackTrace();
+                System.out.println("THE SUBMITTED QUERY FOLLOWS (REMARK: IF THE FORMAL PARAMETERS ARE NOT REPLACED BY THE ACTUAL PARAMETERS IN THE QUERY BELOW HERE, IT IS VERY LIKELY THAT A CONNECTION ISSUE OCCURRED BEFORE THAT THE QUERY COULD BE ACTUALLY SUBMITTED):");
+                System.out.println(preparedStatement);                
                     throw e;
             } finally {
                 close(connection, preparedStatement, null);
@@ -768,6 +822,8 @@ public class MySQLManager {
             } catch (Exception e) {
                 System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));       
                 e.printStackTrace();
+                System.out.println("THE SUBMITTED QUERY FOLLOWS (REMARK: IF THE FORMAL PARAMETERS ARE NOT REPLACED BY THE ACTUAL PARAMETERS IN THE QUERY BELOW HERE, IT IS VERY LIKELY THAT A CONNECTION ISSUE OCCURRED BEFORE THAT THE QUERY COULD BE ACTUALLY SUBMITTED):");
+                System.out.println(preparedStatement);                
                     throw e;
             } finally {
                 close(connection, preparedStatement, null);
@@ -801,6 +857,8 @@ public class MySQLManager {
 
                 System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));   
                 e.printStackTrace();
+                System.out.println("THE SUBMITTED QUERY FOLLOWS (REMARK: IF THE FORMAL PARAMETERS ARE NOT REPLACED BY THE ACTUAL PARAMETERS IN THE QUERY BELOW HERE, IT IS VERY LIKELY THAT A CONNECTION ISSUE OCCURRED BEFORE THAT THE QUERY COULD BE ACTUALLY SUBMITTED):");
+                System.out.println(preparedStatement);                
                     throw e;
             } finally {
                 close(connection, preparedStatement, null);
@@ -890,6 +948,8 @@ public class MySQLManager {
             } catch (SQLException e) {
                 System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
                 e.printStackTrace();
+                System.out.println("THE SUBMITTED QUERY FOLLOWS (REMARK: IF THE FORMAL PARAMETERS ARE NOT REPLACED BY THE ACTUAL PARAMETERS IN THE QUERY BELOW HERE, IT IS VERY LIKELY THAT A CONNECTION ISSUE OCCURRED BEFORE THAT THE QUERY COULD BE ACTUALLY SUBMITTED):");
+                System.out.println(preparedStatement);                
                     throw e;
             } finally {
                 close(connection, preparedStatement, resultSet);
@@ -920,10 +980,40 @@ public class MySQLManager {
             } catch (SQLException e) {
                 System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
                 e.printStackTrace();
+                System.out.println("THE SUBMITTED QUERY FOLLOWS (REMARK: IF THE FORMAL PARAMETERS ARE NOT REPLACED BY THE ACTUAL PARAMETERS IN THE QUERY BELOW HERE, IT IS VERY LIKELY THAT A CONNECTION ISSUE OCCURRED BEFORE THAT THE QUERY COULD BE ACTUALLY SUBMITTED):");
+                System.out.println(preparedStatement);                
                     throw e;
             } finally {
                 close(connection, preparedStatement, resultSet);
             }
+	}
+        
+        public boolean getAuth(String prefix) throws Exception {
+            Connection connection = null;
+            PreparedStatement preparedStatement = null;
+            ResultSet resultSet = null;
+            boolean doAuth = true;
+            try {
+                connection = ConnectionPool.getConnection(new Object(){}.getClass().getEnclosingMethod().getName());
+                preparedStatement = connection.prepareStatement("SELECT auth FROM "  + SMTABLE + " where urlPrefix = ? ");
+                preparedStatement.setString(1, prefix);
+                resultSet = preparedStatement.executeQuery();
+                while (resultSet.next()) {
+                    doAuth = resultSet.getBoolean("auth");
+                }
+                
+            } catch (SQLException e) {
+                if(!"Unknown column 'auth' in 'field list'".equals(e.getMessage())) {
+                    System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+                    e.printStackTrace();
+                    System.out.println("THE SUBMITTED QUERY FOLLOWS (REMARK: IF THE FORMAL PARAMETERS ARE NOT REPLACED BY THE ACTUAL PARAMETERS IN THE QUERY BELOW HERE, IT IS VERY LIKELY THAT A CONNECTION ISSUE OCCURRED BEFORE THAT THE QUERY COULD BE ACTUALLY SUBMITTED):");
+                    System.out.println(preparedStatement);
+                }
+            } 
+            finally{
+                close(connection, preparedStatement, resultSet);
+            }
+            return doAuth;
 	}
           
 }
