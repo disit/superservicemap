@@ -116,7 +116,8 @@ public class ApiV1Resource {
           @QueryParam("graphUri") String graphUri,
           @QueryParam("fullCount") String fullCount,
           @QueryParam("accessToken") String accessToken,
-          @QueryParam("apikey") String apikey
+          @QueryParam("apikey") String apikey,
+          @QueryParam("model") String model
   ) throws Exception {
 
     String authorization = requestContext.getHeader("Authorization");
@@ -161,7 +162,8 @@ public class ApiV1Resource {
                   + (healthiness == null || healthiness.isEmpty() ? "" : "&healthiness=" + URLEncoder.encode(healthiness, "UTF-8"))
                   + (graphUri == null || graphUri.isEmpty() ? "" : "&graphUri=" + URLEncoder.encode(graphUri, "UTF-8"))
                   + (fullCount == null || fullCount.isEmpty() ? "" : "&fullCount=" + URLEncoder.encode(fullCount, "UTF-8"))
-                  + (apikey == null || apikey.isEmpty() ? "" : "&apikey=" + URLEncoder.encode(apikey, "UTF-8"));
+                  + (apikey == null || apikey.isEmpty() ? "" : "&apikey=" + URLEncoder.encode(apikey, "UTF-8"))
+                  + (model == null || model.isEmpty() ? "" : "&model=" + URLEncoder.encode(model, "UTF-8"));
           Client client = ClientBuilder.newClient(getWtcCfg());
           WebTarget targetServiceMap = client.target(UriBuilder.fromUri(SMQUERY).build());
           String httpRequestForwardedFor = "";
@@ -237,7 +239,8 @@ public class ApiV1Resource {
                   + (healthiness == null || healthiness.isEmpty() ? "" : "&healthiness=" + URLEncoder.encode(healthiness, "UTF-8"))
                   + (graphUri == null || graphUri.isEmpty() ? "" : "&graphUri=" + URLEncoder.encode(graphUri, "UTF-8"))
                   + (fullCount == null || fullCount.isEmpty() ? "" : "&fullCount=" + URLEncoder.encode(fullCount, "UTF-8"))
-                  + (apikey == null || apikey.isEmpty() ? "" : "&apikey=" + URLEncoder.encode(apikey, "UTF-8"));
+                  + (apikey == null || apikey.isEmpty() ? "" : "&apikey=" + URLEncoder.encode(apikey, "UTF-8"))
+                  + (model == null || model.isEmpty() ? "" : "&model=" + URLEncoder.encode(model, "UTF-8"));
 
           String httpRequestForwardedFor = "";
           if (requestContext.getHeader("X-Forwarded-For") != null && !requestContext.getHeader("X-Forwarded-For").isEmpty()) {
@@ -915,10 +918,10 @@ public class ApiV1Resource {
       ArrayList<Address> cleanedAddresses = new ArrayList<>();
       for (int i = 0; i < sortedAddresses.size(); i++) {
         try {
-          if (isFeatureCollection && wrk.add(sortedAddresses.get(i).obj.getJSONObject("properties").getString("serviceUri"))) {
+          if (isFeatureCollection && wrk.add(sortedAddresses.get(i).obj.getJSONObject("properties").getString("serviceUri")) && sortedAddresses.get(i).obj.length() > 0) {
             cleanedAddresses.add(sortedAddresses.get(i));
           }
-          if ((!isFeatureCollection) && wrk.add(sortedAddresses.get(i).obj.toString(4))) {
+          if ((!isFeatureCollection) && wrk.add(sortedAddresses.get(i).obj.toString(4)) && sortedAddresses.get(i).obj.length() > 0) {
             cleanedAddresses.add(sortedAddresses.get(i));
           }
         } catch (Exception e) {
@@ -2805,7 +2808,7 @@ public class ApiV1Resource {
                             if (requestContext.getParameter("uid") != null) uid = requestContext.getParameter("uid");
                             if (requestContext.getParameter("accessToken") != null) accessToken = requestContext.getParameter("accessToken");
                             long tstart1 = System.currentTimeMillis();
-                            Response services = getServices(selection, queryId, search, categories, text, maxDists, maxResults, lang, null, uid, "json", null, null, null, requestServiceUri, "true", "WFS", null, null, null, null, null, null, "true", accessToken, null);
+                            Response services = getServices(selection, queryId, search, categories, text, maxDists, maxResults, lang, null, uid, "json", null, null, null, requestServiceUri, "true", "WFS", null, null, null, null, null, null, "true", accessToken, null, null);
                             jsonStr = services.getEntity().toString();
                             long tend1 = System.currentTimeMillis();
                             JSONObject jsonObj = new JSONObject(jsonStr);

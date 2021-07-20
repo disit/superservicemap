@@ -67,7 +67,15 @@ public class MySQLManager {
                 
                 DocumentBuilderFactory docBuilderFactory = DocumentBuilderFactory.newInstance();
                 DocumentBuilder docBuilder = docBuilderFactory.newDocumentBuilder();
-                Document doc = docBuilder.parse(new File("settings.xml"));
+                File settings = new File("ssm-settings.xml");
+                if(!settings.exists()) {
+                  System.out.println("WARNING missing "+settings.getAbsolutePath());
+                  settings = new File("settings.xml");
+                  if(!settings.exists()) {
+                    System.out.println("ERROR missing "+settings.getAbsolutePath());
+                  }
+                }
+                Document doc = docBuilder.parse(settings);
                 doc.getDocumentElement().normalize();
 
                 NodeList listOfSettings = doc.getElementsByTagName("label");
