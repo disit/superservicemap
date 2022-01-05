@@ -684,7 +684,20 @@ public class ApiV1Resource {
             else {  r = targetServiceMap.request().header("X-Forwarded-For", httpRequestForwardedFor).header("Referer", requestContext.getHeader("Referer")).header("Authorization", authorization).get(); }
           }
           entitystr = r.readEntity(String.class);
-          return Response.ok("html".equals(format) ? goThere(store.getUrlPrefixFromSMid(idOfSMwithUri), entitystr) : new JSONObject(entitystr).toString(4), "html".equals(format) ? MediaType.TEXT_HTML : MediaType.APPLICATION_JSON).header("Access-Control-Allow-Origin", "*").status(r.getStatus()).build();
+          int status = r.getStatus();
+          if("html".equals(format))
+            return Response.ok(goThere(store.getUrlPrefixFromSMid(idOfSMwithUri), entitystr), MediaType.TEXT_HTML).header("Access-Control-Allow-Origin", "*").status(status).build();
+          else {
+            if(status==200)
+              return Response.ok(new JSONObject(entitystr).toString(4), MediaType.APPLICATION_JSON)
+                      .header("Access-Control-Allow-Origin", "*")
+                      .status(status)
+                      .build();
+            else
+              return Response.ok("{\"error\":\"failed access to "+serviceUri+"\",\"origin\":\""+SMQUERY+"\"}",MediaType.APPLICATION_JSON)
+                      .status(status)
+                      .build();
+          }
         } catch(JSONException je) {
                 System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
                 je.printStackTrace();

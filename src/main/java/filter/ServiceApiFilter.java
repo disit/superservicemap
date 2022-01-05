@@ -119,7 +119,7 @@ public class ServiceApiFilter implements Filter {
         try {
             ((HttpServletResponse) response).addHeader("Access-Control-Allow-Origin", "*");
             ((HttpServletResponse) response).addHeader("Access-Control-Allow-Methods", "GET, OPTIONS, HEAD, POST");
-            ((HttpServletResponse) response).addHeader("Access-Control-Allow-Headers", "Content-Type, kbn-version");
+            ((HttpServletResponse) response).addHeader("Access-Control-Allow-Headers", "Content-Type, kbn-version, Authorization");
             ((HttpServletResponse) response).addHeader("Access-Control-Max-Age", "86400");
             chain.doFilter(request, response);
         } catch (Throwable t) {

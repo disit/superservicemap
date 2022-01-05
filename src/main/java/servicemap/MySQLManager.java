@@ -483,8 +483,8 @@ public class MySQLManager {
                                 .prepareStatement("SELECT ip, competenceArea FROM "  + SMTABLE);
                 resultSet = preparedStatement.executeQuery();
                 while (resultSet.next()) {
-                    Geometry ca = new WKTReader().read(resultSet.getString("competenceArea"));
-                    if (ca.intersects(wkt)) {
+                    Geometry ca = unmarshal(resultSet.getString("competenceArea"));
+                    if (ca==null || ca.intersects(wkt)) {
                         ips.add(resultSet.getString("ip"));
                     }
                 }
@@ -513,8 +513,8 @@ public class MySQLManager {
                                 .prepareStatement("SELECT ip, competenceArea FROM "  + SMTABLE);
                 resultSet = preparedStatement.executeQuery();
                 while (resultSet.next()) {
-                    Geometry ca = new WKTReader().read(resultSet.getString("competenceArea"));
-                    if (ca.intersects(wkt)) {
+                    Geometry ca = unmarshal(resultSet.getString("competenceArea"));
+                    if (ca==null || ca.intersects(wkt)) {
                         ips.add("http://"+resultSet.getString("ip")+":8080/ServiceMap");
                     }
                 }
@@ -545,8 +545,8 @@ public class MySQLManager {
                                 .prepareStatement("SELECT urlPrefix, competenceArea FROM "  + SMTABLE);
                 resultSet = preparedStatement.executeQuery();
                 while (resultSet.next()) {
-                    Geometry ca = new WKTReader().read(resultSet.getString("competenceArea"));
-                    if (wkt != null && ca.intersects(wkt)) {
+                    Geometry ca = unmarshal(resultSet.getString("competenceArea"));
+                    if (ca==null || (wkt != null && ca.intersects(wkt))) {
                         ips.add(resultSet.getString("urlPrefix"));
                     }
                     allIps.add(resultSet.getString("urlPrefix"));
@@ -578,8 +578,8 @@ public class MySQLManager {
                                 .prepareStatement("SELECT urlPrefix, competenceArea FROM "  + SMTABLE + " sm left join " + SMPTABLE + " smp on smp.api = '"+api+"' and smp.format = '"+format+"' and smp.servicemaps_id = sm.id where coalesce(smp.priority,0) <> -1 order by smp.priority desc");
                 resultSet = preparedStatement.executeQuery();
                 while (resultSet.next()) {
-                    Geometry ca = new WKTReader().read(resultSet.getString("competenceArea"));
-                    if (wkt != null && ca.intersects(wkt)) {
+                    Geometry ca = unmarshal(resultSet.getString("competenceArea"));
+                    if (ca==null || (wkt != null && ca.intersects(wkt))) {
                         ips.add(resultSet.getString("urlPrefix"));
                     }
                     allIps.add(resultSet.getString("urlPrefix"));
@@ -891,7 +891,7 @@ public class MySQLManager {
 			sm.setId(rs.getString("id"));
 			sm.setIp(InetAddress.getByName(rs.getString("ip")));
 			sm.setGraphs(getGraphs(sm.getId()));
-			sm.setCompetenceArea(new WKTReader().read(rs.getString("competenceArea")));
+			sm.setCompetenceArea(unmarshal(rs.getString("competenceArea")));
 			smList.add(sm);
 		}
 		return smList;
