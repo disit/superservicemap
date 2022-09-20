@@ -40,6 +40,9 @@ import com.vividsolutions.jts.geom.Polygon;
 import com.vividsolutions.jts.io.WKTReader;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.Map;
 
 @JsonSerialize
 public class MySQLManager {
@@ -57,6 +60,49 @@ public class MySQLManager {
 	private String USERNAME = "root"; // default
 	private String PASSWORD = "password"; // default
         private int TMPCACHEXP = 60;
+        private static String BLOCKSMONFAILURE = "false";
+        
+        private static Map<String,BlockedSM> blockedServiceMaps = new HashMap<>();
+        
+        private static class BlockedSM {
+          private Date lastFailure;
+          private int failureCount = 1;
+
+          public BlockedSM(Date lastFailure) {
+            this.lastFailure = lastFailure;
+          }
+        }
+        
+        public static synchronized void setBlockedSM(String sm, boolean isBlocked) {
+          BlockedSM bsm = blockedServiceMaps.get(sm);
+          if(isBlocked) {
+            if(bsm==null) {
+              blockedServiceMaps.put(sm, new BlockedSM(new Date()));
+              System.out.println(new Date() + " SM "+sm+" BLOCKED failure count: 1");
+            } else {
+              bsm.failureCount++;
+              System.out.println(new Date() + " SM "+sm+" BLOCKED failure count: "+bsm.failureCount);
+            }
+          } else {
+            if(bsm!=null) {
+              blockedServiceMaps.put(sm, null);              
+              System.out.println(new Date() + " SM "+sm+" UNBLOCKED");
+            }
+          }
+        }
+        
+        public static synchronized boolean isBlockedSM(String sm) {
+          if(BLOCKSMONFAILURE.equals("true")) {
+            BlockedSM bsm;
+            if((bsm = blockedServiceMaps.get(sm))!=null) {
+              if(bsm.failureCount > 5 && (new Date().getTime()-bsm.lastFailure.getTime())/1000/60 > 30) {
+                return true;
+              }
+            }
+            return false;
+          }
+          return false;
+        }
 
 	public MySQLManager() throws Exception {
 		
@@ -90,6 +136,8 @@ public class MySQLManager {
                                         PASSWORD =eElement.getElementsByTagName("value").item(0).getTextContent();
                                 }else if(eElement.getAttribute("id").equalsIgnoreCase("tmpcachexp")) {
                                         TMPCACHEXP =Integer.parseInt(eElement.getElementsByTagName("value").item(0).getTextContent());
+                                }else if(eElement.getAttribute("id").equalsIgnoreCase("blockonfailure")) {
+                                        BLOCKSMONFAILURE = eElement.getElementsByTagName("value").item(0).getTextContent();
                                 }
                         }
                 }
@@ -267,7 +315,7 @@ public class MySQLManager {
                     close(connection, preparedStatement, resultSet);
             }
 	}
-	
+	/*
 	public String getUrlPrefixFromIp(String ip) throws Exception {
             Connection connection = null;
             PreparedStatement preparedStatement = null;
@@ -296,7 +344,7 @@ public class MySQLManager {
             } finally {
                     close(connection, preparedStatement, resultSet);
             }
-	}
+	}*/
 
 	public List<Graph> getGraphs(String smId) throws Exception {
             Connection connection = null;
@@ -409,8 +457,6 @@ public class MySQLManager {
             }
             return ips;
 	}
-	
-	
 
 	public List<String> getGraphOwner(String graph) throws Exception {
             Connection connection = null;
@@ -480,42 +526,15 @@ public class MySQLManager {
                 connection = ConnectionPool.getConnection(new Object(){}.getClass().getEnclosingMethod().getName());
 
                 preparedStatement = connection
-                                .prepareStatement("SELECT ip, competenceArea FROM "  + SMTABLE);
+                                .prepareStatement("SELECT ip, competenceArea, urlPrefix FROM "  + SMTABLE);
                 resultSet = preparedStatement.executeQuery();
                 while (resultSet.next()) {
-                    Geometry ca = unmarshal(resultSet.getString("competenceArea"));
-                    if (ca==null || ca.intersects(wkt)) {
-                        ips.add(resultSet.getString("ip"));
-                    }
-                }
-                return ips;
-            } catch (SQLException e) {
-                System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));    
-                e.printStackTrace();
-                System.out.println("THE SUBMITTED QUERY FOLLOWS (REMARK: IF THE FORMAL PARAMETERS ARE NOT REPLACED BY THE ACTUAL PARAMETERS IN THE QUERY BELOW HERE, IT IS VERY LIKELY THAT A CONNECTION ISSUE OCCURRED BEFORE THAT THE QUERY COULD BE ACTUALLY SUBMITTED):");
-                System.out.println(preparedStatement);                
-                    throw e;
-            } finally {
-                close(connection, preparedStatement, resultSet);
-            }
-	}
-	
-	public List<String> getResponsiblesFormattedForUrl(Geometry wkt) throws Exception {
-            Connection connection = null;
-            PreparedStatement preparedStatement = null;
-            ResultSet resultSet = null;            
-            List<String> ips = new ArrayList<>();
-            try {
-                // connection = DriverManager.getConnection("jdbc:mysql://" + IPADDRESS + "/" + DATABASE + "?user=" + USERNAME + "&password=" + PASSWORD + "&useSSL=false&serverTimezone=UTC");
-                connection = ConnectionPool.getConnection(new Object(){}.getClass().getEnclosingMethod().getName());
-
-                preparedStatement = connection
-                                .prepareStatement("SELECT ip, competenceArea FROM "  + SMTABLE);
-                resultSet = preparedStatement.executeQuery();
-                while (resultSet.next()) {
-                    Geometry ca = unmarshal(resultSet.getString("competenceArea"));
-                    if (ca==null || ca.intersects(wkt)) {
-                        ips.add("http://"+resultSet.getString("ip")+":8080/ServiceMap");
+                    String urlPrefix = resultSet.getString("urlPrefix");
+                    if(!isBlockedSM(urlPrefix)) {
+                        Geometry ca = unmarshal(resultSet.getString("competenceArea"));
+                        if (ca==null || ca.intersects(wkt)) {
+                            ips.add(resultSet.getString("ip"));
+                        }
                     }
                 }
                 return ips;
@@ -545,11 +564,14 @@ public class MySQLManager {
                                 .prepareStatement("SELECT urlPrefix, competenceArea FROM "  + SMTABLE);
                 resultSet = preparedStatement.executeQuery();
                 while (resultSet.next()) {
-                    Geometry ca = unmarshal(resultSet.getString("competenceArea"));
-                    if (ca==null || (wkt != null && ca.intersects(wkt))) {
-                        ips.add(resultSet.getString("urlPrefix"));
+                    String urlPrefix = resultSet.getString("urlPrefix");
+                    if(!isBlockedSM(urlPrefix)) {
+                      Geometry ca = unmarshal(resultSet.getString("competenceArea"));
+                      if (ca==null || (wkt != null && ca.intersects(wkt))) {
+                          ips.add(resultSet.getString("urlPrefix"));
+                      }
+                      allIps.add(urlPrefix);
                     }
-                    allIps.add(resultSet.getString("urlPrefix"));
                 }
                 return ips.size() > 0 ? ips : allIps;
             } catch (SQLException e) {
@@ -567,24 +589,27 @@ public class MySQLManager {
             Connection connection = null;
             PreparedStatement preparedStatement = null;
             ResultSet resultSet = null;
-            List<String> ips = new ArrayList<>();
-            List<String> allIps = new ArrayList<>();
+            List<String> prefixes = new ArrayList<>();
+            List<String> allPrefixes = new ArrayList<>();
             try {
-
-                // connection = DriverManager.getConnection("jdbc:mysql://" + IPADDRESS + "/" + DATABASE + "?user=" + USERNAME + "&password=" + PASSWORD + "&useSSL=false&serverTimezone=UTC");
                 connection = ConnectionPool.getConnection(new Object(){}.getClass().getEnclosingMethod().getName());
 
                 preparedStatement = connection
                                 .prepareStatement("SELECT urlPrefix, competenceArea FROM "  + SMTABLE + " sm left join " + SMPTABLE + " smp on smp.api = '"+api+"' and smp.format = '"+format+"' and smp.servicemaps_id = sm.id where coalesce(smp.priority,0) <> -1 order by smp.priority desc");
                 resultSet = preparedStatement.executeQuery();
                 while (resultSet.next()) {
-                    Geometry ca = unmarshal(resultSet.getString("competenceArea"));
-                    if (ca==null || (wkt != null && ca.intersects(wkt))) {
-                        ips.add(resultSet.getString("urlPrefix"));
-                    }
-                    allIps.add(resultSet.getString("urlPrefix"));
+                  String prefix = resultSet.getString("urlPrefix");
+                  if(!isBlockedSM(prefix)) {
+                      Geometry ca = unmarshal(resultSet.getString("competenceArea"));
+                      if (ca==null || (wkt != null && ca.intersects(wkt))) {
+                          prefixes.add(prefix);
+                      }
+                      allPrefixes.add(prefix);
+                  } else {
+                    System.out.println("WARNING SKIPPING BLOCKED SM: "+prefix);
+                  }
                 }
-                return ips.size() > 0 ? ips : allIps;
+                return prefixes.size() > 0 ? prefixes : allPrefixes;
             } catch (SQLException e) {
                 System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));    
                 e.printStackTrace();
@@ -892,6 +917,7 @@ public class MySQLManager {
 			sm.setIp(InetAddress.getByName(rs.getString("ip")));
 			sm.setGraphs(getGraphs(sm.getId()));
 			sm.setCompetenceArea(unmarshal(rs.getString("competenceArea")));
+                        sm.setPrefix(rs.getString("urlPrefix"));
 			smList.add(sm);
 		}
 		return smList;

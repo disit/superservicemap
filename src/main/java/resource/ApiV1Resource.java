@@ -59,12 +59,14 @@ import java.util.Arrays;
 import java.util.Calendar;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.Date;
 import java.util.LinkedHashSet;
 import java.util.Scanner;
 import java.util.TimeZone;
 import javax.servlet.http.HttpServletRequest;
 import javax.ws.rs.Consumes;
 import javax.ws.rs.POST;
+import javax.ws.rs.client.Invocation.Builder;
 import javax.ws.rs.core.Context;
 import javax.xml.parsers.SAXParser;
 import javax.xml.parsers.SAXParserFactory;
@@ -129,12 +131,12 @@ public class ApiV1Resource {
 
     if (serviceUri == null) { // If it is a service search, and not a request for details about a specific service, do the following
 
-                // Identify service maps that have to be queried based on the given position, sorted by priority4html, so that if HTML format is requested,
+      // Identify service maps that have to be queried based on the given position, sorted by priority4html, so that if HTML format is requested,
       // getting the first element of the list ignoring all the others is the right choice. JSON output is not affected since how elements are
       // sorted in the list does not affect any way the JSON output.
       List<String> competentServiceMapsPrefix = getCompetentServiceMaps(selection, "/api/v1", "html".equals(format) ? "html" : "json");
 
-                // If just one service map must be queried, simply forward the query, return its result, and you are done
+      // If just one service map must be queried, simply forward the query, return its result, and you are done
       if ("html".equals(format) || competentServiceMapsPrefix.size() == 1) {
         String serviceMapResponse = null;
         try {
@@ -203,8 +205,7 @@ public class ApiV1Resource {
           return Response.status(500).build();
         }
       } else {
-
-                    // Otherwise, launch a separate thread for each of the service maps that must be queried, so that they could concurrently populate the lists of bus stops, sensors, and generic services
+        // Otherwise, launch a separate thread for each of the service maps that must be queried, so that they could concurrently populate the lists of bus stops, sensors, and generic services
         HashSet<String> BusStopsFeaturedUniques = new HashSet<>();
         HashSet<String> SensorSitesFeaturedUniques = new HashSet<>();
         HashSet<String> ServicesFeaturedUniques = new HashSet<>();
@@ -252,7 +253,6 @@ public class ApiV1Resource {
                   SensorSitesFeaturedUniques, ServicesFeaturedUniques, GenericFeaturedUniques, PlainResponses, PlainResponseCodes, httpRequestForwardedFor, doAuth(competentServiceMapsPrefix.get(i))?authorization:null, requestContext.getHeader("Referer"));
 
           threads[i].start();
-
         }
 
         for (int i = 0; i < competentServiceMapsPrefix.size(); i++) {
@@ -281,11 +281,14 @@ public class ApiV1Resource {
               return Response.status(500).build();
             }
           } else {
-            return Response.status(500).build();
+            System.out.println("ERROR request with different results codes:"+PlainResponseCodes+" response:"+PlainResponses);
+            return Response.status(500)
+                    .entity("{\"error\":\"incongruent reply from "+competentServiceMapsPrefix.size()+" SMs\"}")
+                    .build();
           }
         }
 
-                    // Put all features in a single set, and sort them by distance 
+        // Put all features in a single set, and sort them by distance 
         class Feature {
 
           double dist;
@@ -369,6 +372,7 @@ public class ApiV1Resource {
               e.printStackTrace();
           }
         }
+        
         uris.clear();
         Iterator<String> genericIterator = GenericFeaturedUniques.iterator();
         while (genericIterator.hasNext()) {
@@ -393,6 +397,7 @@ public class ApiV1Resource {
           }
         }
         uris.clear();
+
         class FeatureComparator implements Comparator<Feature> {
 
           @Override
@@ -408,7 +413,7 @@ public class ApiV1Resource {
         }
         allFeatures.sort(new FeatureComparator());
 
-                    // Initialize the response 
+        // Initialize the response 
         JSONObject initialJSONresponse = new JSONObject();
         if (!GenericFeaturedUniques.isEmpty()) {
           initialJSONresponse.put("type", "FeatureCollection");
@@ -446,7 +451,7 @@ public class ApiV1Resource {
             e.printStackTrace();
         }
 
-                    // ( reserve 20% to sensors, 30% to bus, 50% to service, redistributing vacancies )
+        // ( reserve 20% to sensors, 30% to bus, 50% to service, redistributing vacancies )
         int howManySensors = 0;
         int howManyBusStops = 0;
         int howManyServices = 0;
@@ -577,7 +582,7 @@ public class ApiV1Resource {
           }
         }
 
-                    // Strip out empty categories
+        // Strip out empty categories
         try {
           JSONObject ser = initialJSONresponse.getJSONObject("Services");
           if (ser.getJSONArray("features").length() == 0) {
@@ -607,9 +612,14 @@ public class ApiV1Resource {
           System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
             e.printStackTrace();
         }
-
-                    // Return the response object
-        return Response.ok(initialJSONresponse.toString(4), MediaType.APPLICATION_JSON).header("Access-Control-Allow-Origin", "*").build();
+        // Return the response object
+        String response;
+        if(maxResultNumeric>1000)
+          response = initialJSONresponse.toString();
+        else
+          response = initialJSONresponse.toString(4);
+        
+        return Response.ok(response, MediaType.APPLICATION_JSON).header("Access-Control-Allow-Origin", "*").build();
 
       }
 
@@ -652,7 +662,102 @@ public class ApiV1Resource {
 
   }
 
-        // Manage requests for full details about a specific feature (bus stop, sensor, or other generic service) identifier through its URI.
+
+  // Manage feature (bus stops, sensors, and other services) searches, and requests for full details about a specific feature
+  @Path("iot-search")
+  @SuppressWarnings("deprecation")
+  @GET
+  public Response searchIoT(
+          @QueryParam("selection") String selection,
+          @QueryParam("categories") String categories,
+          @QueryParam("maxDists") String maxDists,
+          @QueryParam("maxResults") String maxResults,
+          @QueryParam("requestFrom") String requestFrom,
+          @QueryParam("accessToken") String accessToken,
+          @QueryParam("model") String model,
+          @QueryParam("fromResult") String fromResult,
+          @QueryParam("valueFilters") String valueFilters,
+          @QueryParam("values") String values,
+          @QueryParam("sortOnValue") String sortOnValue,
+          @QueryParam("serviceUri") String serviceUri,
+          @QueryParam("text") String text
+          
+  ) throws Exception {
+
+    String authorization = requestContext.getHeader("Authorization");
+    if (authorization == null && accessToken != null && !accessToken.isEmpty()) {
+      authorization = "bearer " + accessToken;
+    }
+
+    String ipAddressRequestCameFrom = requestContext.getRemoteAddr();
+
+      // Identify service maps that have to be queried based on the given position, sorted by priority4html, so that if HTML format is requested,
+      // getting the first element of the list ignoring all the others is the right choice. JSON output is not affected since how elements are
+      // sorted in the list does not affect any way the JSON output.
+      List<String> competentServiceMapsPrefix = getCompetentServiceMaps(selection, "/api/v1/iot-search",  "json");
+
+      // If just one service map must be queried, simply forward the query, return its result, and you are done
+      if (competentServiceMapsPrefix.size() == 1) {
+        String serviceMapResponse = null;
+        try {
+          final String SMQUERY = competentServiceMapsPrefix.get(0) + "/api/v1/iot-search/?ssm=yes"
+                  + (selection == null || selection.isEmpty() ? "" : "&selection=" + URLEncoder.encode(selection, "UTF-8"))
+                  + (categories == null || categories.isEmpty() ? "" : "&categories=" + URLEncoder.encode(categories, "UTF-8"))
+                  + (maxDists == null || maxDists.isEmpty() ? "" : "&maxDists=" + URLEncoder.encode(maxDists, "UTF-8"))
+                  + (maxResults == null || maxResults.isEmpty() ? "" : "&maxResults=" + URLEncoder.encode(maxResults, "UTF-8"))
+                  + (requestFrom == null || requestFrom.isEmpty() ? "" : "&requestFrom=" + URLEncoder.encode(requestFrom, "UTF-8"))
+                  + (model == null || model.isEmpty() ? "" : "&model=" + URLEncoder.encode(model, "UTF-8"))
+                  + (fromResult == null || fromResult.isEmpty() ? "" : "&fromResult=" + URLEncoder.encode(fromResult, "UTF-8"))
+                  + (valueFilters == null || valueFilters.isEmpty() ? "" : "&valueFilters=" + URLEncoder.encode(valueFilters, "UTF-8"))
+                  + (values == null || values.isEmpty() ? "" : "&values=" + URLEncoder.encode(values, "UTF-8"))
+                  + (sortOnValue == null || sortOnValue.isEmpty() ? "" : "&sortOnValue=" + URLEncoder.encode(sortOnValue, "UTF-8"))
+                  + (serviceUri == null || serviceUri.isEmpty() ? "" : "&serviceUri=" + URLEncoder.encode(serviceUri, "UTF-8"))
+                  + (text == null || text.isEmpty() ? "" : "&text=" + URLEncoder.encode(text, "UTF-8"))
+                  ;
+
+          Client client = ClientBuilder.newClient(getWtcCfg());
+          WebTarget targetServiceMap = client.target(UriBuilder.fromUri(SMQUERY).build());
+          String httpRequestForwardedFor = "";
+          if (requestContext.getHeader("X-Forwarded-For") != null && !requestContext.getHeader("X-Forwarded-For").isEmpty()) {
+            httpRequestForwardedFor += requestContext.getHeader("X-Forwarded-For") + ",";
+          }
+          httpRequestForwardedFor += ipAddressRequestCameFrom;
+          Response r;
+          if (requestContext.getHeader("Referer") == null) {
+            if (authorization == null || !doAuth(competentServiceMapsPrefix.get(0))) {
+              r = targetServiceMap.request().header("X-Forwarded-For", httpRequestForwardedFor).get();
+            } else {
+              r = targetServiceMap.request().header("X-Forwarded-For", httpRequestForwardedFor).header("Authorization", authorization).get();
+            }
+          } else {
+            if (authorization == null || !doAuth(competentServiceMapsPrefix.get(0))) {
+              r = targetServiceMap.request().header("X-Forwarded-For", httpRequestForwardedFor).header("Referer", requestContext.getHeader("Referer")).get();
+            } else {
+              r = targetServiceMap.request().header("X-Forwarded-For", httpRequestForwardedFor).header("Authorization", authorization).header("Referer", requestContext.getHeader("Referer")).get();
+            }
+          }
+          serviceMapResponse = r.readEntity(String.class);
+          return Response.ok(new JSONObject(serviceMapResponse).toString(4), MediaType.APPLICATION_JSON).header("Access-Control-Allow-Origin", "*").status(r.getStatus()).build();
+        } catch(JSONException je) {
+            System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+            je.printStackTrace();
+            System.out.println("HERE IS THE JSON THAT GENERATED THE ERROR:");
+            System.out.println(serviceMapResponse);   
+            return Response.status(500)
+                    .entity("{\"exception\":\"invalid json from SM\"}").build();
+        } catch (Exception e) {
+            System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+            e.printStackTrace();
+          return Response.status(500)
+                  .entity("{\"exception\":\""+e.getMessage()+"\"}").build();
+        }
+      } else {
+        return Response.status(400).header("Access-Control-Allow-Origin", "*")
+                .entity("{\"error\":\""+competentServiceMapsPrefix.size()+" servicemap(s) matching selection, refine search to match only one servicemap\"}").build();
+      }
+  }
+  
+  // Manage requests for full details about a specific feature (bus stop, sensor, or other generic service) identifier through its URI.
   // It is a subcase of the /api/v1 RESTful Web Service. It is executed when the serviceUri input parameter is received in input.
   public Response getServiceURI(String serviceUri, String format, String api, String completePathAndQuery, String httpRequestForwardedFor, String authorization) throws Exception {
 
@@ -675,25 +780,28 @@ public class ApiV1Resource {
           final String SMQUERY = store.getUrlPrefixFromSMid(idOfSMwithUri) + completePathAndQuery;
           Client client = ClientBuilder.newClient(getWtcCfg());
           WebTarget targetServiceMap = client.target(UriBuilder.fromUri(SMQUERY).build());
-          Response r;
-          if (requestContext.getHeader("Referer") == null) {
-            if (authorization == null || !doAuth(store.getUrlPrefixFromSMid(idOfSMwithUri))) { r = targetServiceMap.request().header("X-Forwarded-For", httpRequestForwardedFor).get(); }
-            else { r = targetServiceMap.request().header("X-Forwarded-For", httpRequestForwardedFor).header("Authorization", authorization).get(); } 
-          } else {
-            if (authorization == null || !doAuth(store.getUrlPrefixFromSMid(idOfSMwithUri))) {  r = targetServiceMap.request().header("X-Forwarded-For", httpRequestForwardedFor).header("Referer", requestContext.getHeader("Referer")).get(); }
-            else {  r = targetServiceMap.request().header("X-Forwarded-For", httpRequestForwardedFor).header("Referer", requestContext.getHeader("Referer")).header("Authorization", authorization).get(); }
+
+          Builder rb = targetServiceMap.request().header("X-Forwarded-For", httpRequestForwardedFor);
+          if (requestContext.getHeader("Referer") != null) {
+            rb.header("Referer", requestContext.getHeader("Referer"));
           }
-          entitystr = r.readEntity(String.class);
+          if (authorization == null || doAuth(store.getUrlPrefixFromSMid(idOfSMwithUri)) ) {  
+            rb.header("Authorization", authorization);
+          } 
+
+          Response r = rb.get();
+          
           int status = r.getStatus();
           if("html".equals(format))
             return Response.ok(goThere(store.getUrlPrefixFromSMid(idOfSMwithUri), entitystr), MediaType.TEXT_HTML).header("Access-Control-Allow-Origin", "*").status(status).build();
           else {
-            if(status==200)
+            if(status==200) {
+              entitystr = r.readEntity(String.class);
               return Response.ok(new JSONObject(entitystr).toString(4), MediaType.APPLICATION_JSON)
                       .header("Access-Control-Allow-Origin", "*")
                       .status(status)
                       .build();
-            else
+            } else
               return Response.ok("{\"error\":\"failed access to "+serviceUri+"\",\"origin\":\""+SMQUERY+"\"}",MediaType.APPLICATION_JSON)
                       .status(status)
                       .build();
@@ -717,29 +825,45 @@ public class ApiV1Resource {
         HashSet<String> responseCodes = new HashSet<>();
         String tmpc = null;
         for (int i = 0; i < sMs.size(); i++) {
+          if(MySQLManager.isBlockedSM(sMs.get(i).getPrefix())) {
+            System.out.println("WARNING SKIPPING "+sMs.get(i).getPrefix());
+            continue;
+          }
+          
           final String SMQUERY = store.getUrlPrefixFromSMid(sMs.get(i).getId()) + completePathAndQuery;
           Client client = ClientBuilder.newClient(getWtcCfg());
+          
           WebTarget targetServiceMap = client.target(UriBuilder.fromUri(SMQUERY).build());
-          Response r;
-          if (requestContext.getHeader("Referer") == null) {
-            if (authorization == null || !doAuth(store.getUrlPrefixFromSMid(sMs.get(i).getId())) ) {  r = targetServiceMap.request().header("X-Forwarded-For", httpRequestForwardedFor).get(); }
-            else {  r = targetServiceMap.request().header("X-Forwarded-For", httpRequestForwardedFor).header("Authorization", authorization).get(); } 
-          } else {
-              if (authorization == null || !doAuth(store.getUrlPrefixFromSMid(sMs.get(i).getId())) ) {  r = targetServiceMap.request().header("X-Forwarded-For", httpRequestForwardedFor).header("Referer", requestContext.getHeader("Referer")).get(); }
-              else {  r = targetServiceMap.request().header("X-Forwarded-For", httpRequestForwardedFor).header("Referer", requestContext.getHeader("Referer")).header("Authorization", authorization).get(); }
+          Builder rb = targetServiceMap.request().header("X-Forwarded-For", httpRequestForwardedFor);
+          if (requestContext.getHeader("Referer") != null) {
+            rb.header("Referer", requestContext.getHeader("Referer"));
           }
-          String code = String.valueOf(r.getStatus());
-          response = r.readEntity(String.class).replaceAll("[\r]", "").replaceAll("[\n]", "");
-          responseCodes.add(code);
-          responses.add(response);
-          if (r.getStatus() == 200) {
-            store.insertCache(serviceUri, sMs.get(i).getId());
-            return Response.ok("html".equals(format) ? goThere(store.getUrlPrefixFromSMid(sMs.get(i).getId()), response) : new JSONObject(response).toString(4), "html".equals(format) ? MediaType.TEXT_HTML : MediaType.APPLICATION_JSON).header("Access-Control-Allow-Origin", "*").build();
-          }
-          else {
-              if(tmpc == null || r.getStatus() != 400) {
-                  tmpc = sMs.get(i).getId();
-              }
+          if (authorization == null || doAuth(store.getUrlPrefixFromSMid(sMs.get(i).getId())) ) {  
+            rb.header("Authorization", authorization);
+          } 
+
+          try {
+            Response r = rb.get();
+
+            String code = String.valueOf(r.getStatus());
+            response = r.readEntity(String.class).replaceAll("[\r]", "").replaceAll("[\n]", "");
+            responseCodes.add(code);
+            responses.add(response);
+            if (r.getStatus() == 200) {
+              store.insertCache(serviceUri, sMs.get(i).getId());
+              String smPrefix = sMs.get(i).getPrefix();
+              MySQLManager.setBlockedSM(smPrefix, false);            
+              return Response.ok("html".equals(format) ? goThere(store.getUrlPrefixFromSMid(sMs.get(i).getId()), response) : new JSONObject(response).toString(4), "html".equals(format) ? MediaType.TEXT_HTML : MediaType.APPLICATION_JSON).header("Access-Control-Allow-Origin", "*").build();
+            }
+            else {
+                if(tmpc == null || r.getStatus() != 400) {
+                    tmpc = sMs.get(i).getId();
+                }
+            }
+          } catch(Exception e) {
+            String smPrefix = sMs.get(i).getPrefix();
+            MySQLManager.setBlockedSM(smPrefix, true);            
+            e.printStackTrace();
           }
         }
         if (responses.size() == 1 && responseCodes.size() == 1) {
@@ -752,19 +876,25 @@ public class ApiV1Resource {
         }
         else {
             store.insertCache(serviceUri, tmpc, true);
-            return Response.status(500).build();
+            return Response.status(500)
+                    .entity("{\"error\":\"inconsistent reply from SMs\"")
+                    .build();
         }
       } catch(JSONException je) {
                 System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
                 je.printStackTrace();
                 System.out.println("THIS IS THE JSON THAT GENERATED THE ERROR:");
                 System.out.println(plainResponse!=null?plainResponse:response);   
+        return Response.status(500)
+                .entity("{\"exception\":\"invalid json from SM\"")
+                .build();
       } catch (Exception e) {
         System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
           e.printStackTrace();
+        return Response.status(500)
+                .entity("{\"exception\":\""+e.getMessage()+"\"}")
+                .build();
       }
-
-      return Response.status(500).build();
 
     } catch (Exception e) {
       System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
@@ -1081,7 +1211,7 @@ public class ApiV1Resource {
       }
     }
 
-            // If just one valid response arrived...
+    // If just one valid response arrived...
     if (collections.size() == 1) {
       String collections0 = null;
       try {
@@ -1449,7 +1579,7 @@ public class ApiV1Resource {
       }
     }
 
-            // Remove duplicates 
+    // Remove duplicates 
     HashSet<String> wrk = new HashSet<>();
     ArrayList<JSONObject> cleanedLines = new ArrayList<>();
     for (int i = 0; i < lines.size(); i++) {
@@ -1464,7 +1594,7 @@ public class ApiV1Resource {
     }
     lines = cleanedLines;
 
-            // Sort by short name
+    // Sort by short name
     class LineComparator implements Comparator<JSONObject> {
 
       @Override
@@ -1481,12 +1611,12 @@ public class ApiV1Resource {
 
     lines.sort(new LineComparator());
 
-            // Initialize response
+    // Initialize response
     JSONObject response = new JSONObject();
     JSONArray jLines = new JSONArray();
     response.put("BusLines", jLines);
 
-            // Append lines to response
+    // Append lines to response
     for (int i = 0; i < lines.size(); i++) {
       jLines.put(lines.get(i));
     }
@@ -2396,7 +2526,7 @@ public class ApiV1Resource {
       }
       httpRequestForwardedFor += ipAddressRequestCameFrom;
 
-      threads[i] = new RequestMakingAndHashThreadFeedbacks(SMQUERY, i, lastPhotos, lastComments, lastStars, plainResponses, plainResponseCodes, limit, httpRequestForwardedFor, requestContext.getHeader("Referer"));
+      threads[i] = new RequestMakingAndHashThreadFeedbacks(competentServiceMapsPrefix.get(i), SMQUERY, i, lastPhotos, lastComments, lastStars, plainResponses, plainResponseCodes, limit, httpRequestForwardedFor, requestContext.getHeader("Referer"));
 
       threads[i].start();
 
@@ -3594,6 +3724,7 @@ public class ApiV1Resource {
 
   public static class RequestMakingAndHashThreadFeedbacks extends Thread {
 
+    String prefixSM;
     String request;
     int id;
     HashSet<String> commentsUniques;
@@ -3605,7 +3736,8 @@ public class ApiV1Resource {
     String httpRequestForwardedFor;
     String referer;
 
-    public RequestMakingAndHashThreadFeedbacks(String r, int i, HashSet<String> photosUniques, HashSet<String> commentsUniques, HashSet<String> starsUniques, HashSet<String> plainResponses, HashSet<String> plainResponseCodes, ArrayList<Integer> limit, String httpRequestForwardedFor, String referer) {
+    public RequestMakingAndHashThreadFeedbacks(String prefixSM, String r, int i, HashSet<String> photosUniques, HashSet<String> commentsUniques, HashSet<String> starsUniques, HashSet<String> plainResponses, HashSet<String> plainResponseCodes, ArrayList<Integer> limit, String httpRequestForwardedFor, String referer) {
+      this.prefixSM = this.prefixSM;
       request = r;
       id = i;
       this.photosUniques = photosUniques;
@@ -3635,6 +3767,7 @@ public class ApiV1Resource {
         serviceMapResponse = r.readEntity(String.class);
         plainResponses.add(serviceMapResponse);
         plainResponseCodes.add(String.valueOf(r.getStatus()));
+        MySQLManager.setBlockedSM(prefixSM, false);
 
         JSONObject newResponse = new JSONObject(serviceMapResponse);
 
@@ -3682,7 +3815,10 @@ public class ApiV1Resource {
             je.printStackTrace();
             System.out.println("HERE IS THE JSON THAT GENERATED THE ERROR:");          
             System.out.println(serviceMapResponse);
-        } 
+      } catch(Exception e) {
+            MySQLManager.setBlockedSM(prefixSM, true);
+            e.printStackTrace();        
+      } 
 
     }
 
@@ -3753,21 +3889,21 @@ public class ApiV1Resource {
     return sel;
   }
 
-        // Provides a sorted list of service maps based on the given position. Service maps are sorted by their HTML priority. This way, if HTML format
+  // Provides a sorted list of service maps based on the given position. Service maps are sorted by their HTML priority. This way, if HTML format
   // is requested, one can simply get the first service map in the list ignoring the others. Sorting does not affect any way JSON responses.
   private List<String> getCompetentServiceMaps(String position, String api, String format) throws Exception {
 
     try {
 
-                // Selection string -> Geometry instance, for that it could be possible to efficiently determine intersections with geometries associated to service maps
+      // Selection string -> Geometry instance, for that it could be possible to efficiently determine intersections with geometries associated to service maps
       Geometry sel = str2geo(position);
 
-                // Computation of intersections --> Identification of those service maps that have to be queried based on the selection input parameter
+      // Computation of intersections --> Identification of those service maps that have to be queried based on the selection input parameter
       // If something goes wrong, all service maps are considered to be of interest.
       MySQLManager msm = new MySQLManager();
       List<String> competentServiceMaps = msm.getResponsiblesUrlPrefix(sel, api, format);
 
-                // Strip out duplicates from the list of the service maps that have to be queried 
+      // Strip out duplicates from the list of the service maps that have to be queried 
       LinkedHashSet<String> h = new LinkedHashSet<>(competentServiceMaps);
       competentServiceMaps.clear();
       competentServiceMaps.addAll(h);
@@ -3881,7 +4017,8 @@ public class ApiV1Resource {
   }
 
   class ParallelQuery extends Thread {
-
+    String prefixSM;
+    
     String url;
     ArrayList<String> allResponses;
     HashSet<String> allAllResponses;
@@ -4204,11 +4341,17 @@ public class ApiV1Resource {
                     WebTarget targetServiceMap = client.target(UriBuilder.fromUri(SMQUERY).build());
                     Response r;
                     if (requestContext.getHeader("Referer") == null) {
-                      if (authorization == null || !doAuth(store.getUrlPrefixFromSMid(idOfSMwithUri))) { r = targetServiceMap.request().header("X-Forwarded-For", httpRequestForwardedFor).post(Entity.json(json)); }
-                      else { r = targetServiceMap.request().header("X-Forwarded-For", httpRequestForwardedFor).header("Authorization", authorization).post(Entity.json(json)); } 
+                      if (authorization == null || !doAuth(store.getUrlPrefixFromSMid(idOfSMwithUri))) {
+                        r = targetServiceMap.request().header("X-Forwarded-For", httpRequestForwardedFor).post(Entity.json(json));
+                      } else {
+                        r = targetServiceMap.request().header("X-Forwarded-For", httpRequestForwardedFor).header("Authorization", authorization).post(Entity.json(json));
+                      }
                     } else {
-                      if (authorization == null || !doAuth(store.getUrlPrefixFromSMid(idOfSMwithUri))) {  r = targetServiceMap.request().header("X-Forwarded-For", httpRequestForwardedFor).header("Referer", requestContext.getHeader("Referer")).post(Entity.json(json)); }
-                      else {  r = targetServiceMap.request().header("X-Forwarded-For", httpRequestForwardedFor).header("Referer", requestContext.getHeader("Referer")).header("Authorization", authorization).post(Entity.json(json)); }
+                      if (authorization == null || !doAuth(store.getUrlPrefixFromSMid(idOfSMwithUri))) {
+                        r = targetServiceMap.request().header("X-Forwarded-For", httpRequestForwardedFor).header("Referer", requestContext.getHeader("Referer")).post(Entity.json(json));
+                      } else {
+                        r = targetServiceMap.request().header("X-Forwarded-For", httpRequestForwardedFor).header("Referer", requestContext.getHeader("Referer")).header("Authorization", authorization).post(Entity.json(json));
+                      }
                     }
                     return Response.ok(r.readEntity(String.class), MediaType.TEXT_PLAIN).header("Access-Control-Allow-Origin", "*").status(r.getStatus()).build();
                 } catch (Exception e) {
@@ -4228,11 +4371,17 @@ public class ApiV1Resource {
                 WebTarget targetServiceMap = client.target(UriBuilder.fromUri(SMQUERY).build());
                 Response r;
                 if (requestContext.getHeader("Referer") == null) {
-                  if (authorization == null || !doAuth(store.getUrlPrefixFromSMid(sMs.get(i).getId())) ) {  r = targetServiceMap.request().header("X-Forwarded-For", httpRequestForwardedFor).post(Entity.json(json)); }
-                  else {  r = targetServiceMap.request().header("X-Forwarded-For", httpRequestForwardedFor).header("Authorization", authorization).post(Entity.json(json)); } 
+                  if (authorization == null || !doAuth(store.getUrlPrefixFromSMid(sMs.get(i).getId()))) {
+                    r = targetServiceMap.request().header("X-Forwarded-For", httpRequestForwardedFor).post(Entity.json(json));
+                  } else {
+                    r = targetServiceMap.request().header("X-Forwarded-For", httpRequestForwardedFor).header("Authorization", authorization).post(Entity.json(json));
+                  }
                 } else {
-                    if (authorization == null || !doAuth(store.getUrlPrefixFromSMid(sMs.get(i).getId())) ) {  r = targetServiceMap.request().header("X-Forwarded-For", httpRequestForwardedFor).header("Referer", requestContext.getHeader("Referer")).post(Entity.json(json)); }
-                    else {  r = targetServiceMap.request().header("X-Forwarded-For", httpRequestForwardedFor).header("Referer", requestContext.getHeader("Referer")).header("Authorization", authorization).post(Entity.json(json)); }
+                  if (authorization == null || !doAuth(store.getUrlPrefixFromSMid(sMs.get(i).getId()))) {
+                    r = targetServiceMap.request().header("X-Forwarded-For", httpRequestForwardedFor).header("Referer", requestContext.getHeader("Referer")).post(Entity.json(json));
+                  } else {
+                    r = targetServiceMap.request().header("X-Forwarded-For", httpRequestForwardedFor).header("Referer", requestContext.getHeader("Referer")).header("Authorization", authorization).post(Entity.json(json));
+                  }
                 }
                 String code = String.valueOf(r.getStatus());
                 String response = r.readEntity(String.class).replaceAll("[\r]", "").replaceAll("[\n]", "");
@@ -4465,11 +4614,17 @@ public class ApiV1Resource {
                     WebTarget targetServiceMap = client.target(UriBuilder.fromUri(SMQUERY).build());
                     Response r;
                     if (requestContext.getHeader("Referer") == null) {
-                        if (authorization == null || !doAuth(store.getUrlPrefixFromSMid(idOfSMwithUri))) { r = targetServiceMap.request().header("X-Forwarded-For", httpRequestForwardedFor).get(); }
-                        else { r = targetServiceMap.request().header("X-Forwarded-For", httpRequestForwardedFor).header("Authorization", authorization).get(); } 
+                      if (authorization == null || !doAuth(store.getUrlPrefixFromSMid(idOfSMwithUri))) {
+                        r = targetServiceMap.request().header("X-Forwarded-For", httpRequestForwardedFor).get();
+                      } else {
+                        r = targetServiceMap.request().header("X-Forwarded-For", httpRequestForwardedFor).header("Authorization", authorization).get();
+                      }
                     } else {
-                        if (authorization == null || !doAuth(store.getUrlPrefixFromSMid(idOfSMwithUri))) {  r = targetServiceMap.request().header("X-Forwarded-For", httpRequestForwardedFor).header("Referer", requestContext.getHeader("Referer")).get(); }
-                        else {  r = targetServiceMap.request().header("X-Forwarded-For", httpRequestForwardedFor).header("Referer", requestContext.getHeader("Referer")).header("Authorization", authorization).get(); }
+                      if (authorization == null || !doAuth(store.getUrlPrefixFromSMid(idOfSMwithUri))) {
+                        r = targetServiceMap.request().header("X-Forwarded-For", httpRequestForwardedFor).header("Referer", requestContext.getHeader("Referer")).get();
+                      } else {
+                        r = targetServiceMap.request().header("X-Forwarded-For", httpRequestForwardedFor).header("Referer", requestContext.getHeader("Referer")).header("Authorization", authorization).get();
+                      }
                     }
                     rstr = r.readEntity(String.class);
                     return Response.ok("html".equals(format) ? goThere(store.getUrlPrefixFromSMid(idOfSMwithUri), rstr) : new JSONArray(rstr).toString(4), "html".equals(format) ? MediaType.TEXT_HTML : MediaType.APPLICATION_JSON).header("Access-Control-Allow-Origin", "*").status(r.getStatus()).build();
@@ -4499,11 +4654,17 @@ public class ApiV1Resource {
                     WebTarget targetServiceMap = client.target(UriBuilder.fromUri(SMQUERY).build());
                     Response r;
                     if (requestContext.getHeader("Referer") == null) {
-                        if (authorization == null || !doAuth(store.getUrlPrefixFromSMid(sMs.get(i).getId())) ) {  r = targetServiceMap.request().header("X-Forwarded-For", httpRequestForwardedFor).get(); }
-                        else {  r = targetServiceMap.request().header("X-Forwarded-For", httpRequestForwardedFor).header("Authorization", authorization).get(); } 
+                      if (authorization == null || !doAuth(store.getUrlPrefixFromSMid(sMs.get(i).getId()))) {
+                        r = targetServiceMap.request().header("X-Forwarded-For", httpRequestForwardedFor).get();
+                      } else {
+                        r = targetServiceMap.request().header("X-Forwarded-For", httpRequestForwardedFor).header("Authorization", authorization).get();
+                      }
                     } else {
-                        if (authorization == null || !doAuth(store.getUrlPrefixFromSMid(sMs.get(i).getId())) ) {  r = targetServiceMap.request().header("X-Forwarded-For", httpRequestForwardedFor).header("Referer", requestContext.getHeader("Referer")).get(); }
-                        else {  r = targetServiceMap.request().header("X-Forwarded-For", httpRequestForwardedFor).header("Referer", requestContext.getHeader("Referer")).header("Authorization", authorization).get(); }
+                      if (authorization == null || !doAuth(store.getUrlPrefixFromSMid(sMs.get(i).getId()))) {
+                        r = targetServiceMap.request().header("X-Forwarded-For", httpRequestForwardedFor).header("Referer", requestContext.getHeader("Referer")).get();
+                      } else {
+                        r = targetServiceMap.request().header("X-Forwarded-For", httpRequestForwardedFor).header("Referer", requestContext.getHeader("Referer")).header("Authorization", authorization).get();
+                      }
                     }
                     String code = String.valueOf(r.getStatus());
                     response = r.readEntity(String.class).replaceAll("[\r]", "").replaceAll("[\n]", "");

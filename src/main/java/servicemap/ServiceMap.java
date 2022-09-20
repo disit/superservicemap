@@ -57,6 +57,7 @@ public class ServiceMap {
 	private InetAddress ip;
 	private List<Graph> graphs;
 	private Geometry competenceArea;
+        private String prefix;
 
 	private int maxID = 100000;
 
@@ -168,5 +169,12 @@ public class ServiceMap {
 		this.competenceArea = competenceArea;
 
 	}
-
+        
+        public String getPrefix() {
+          return prefix;
+        }
+        
+        public void setPrefix(String pfx) {
+          prefix = pfx;
+        }
 }
