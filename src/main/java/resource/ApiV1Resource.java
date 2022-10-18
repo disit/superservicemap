@@ -255,8 +255,10 @@ public class ApiV1Resource {
           threads[i].start();
         }
 
+        //long start=System.currentTimeMillis();
         for (int i = 0; i < competentServiceMapsPrefix.size(); i++) {
           threads[i].join();
+          //System.out.println("join "+i+" "+competentServiceMapsPrefix.get(i)+" time: "+(System.currentTimeMillis()-start)+"ms"+" t1:"+threads[i].time+" t2:"+threads[i].allTime);
         }
 
         // If nothing was found querying all the service maps of interest, check to see if all service maps agree about a response, in which case give back that response, otherwise return an empty object. This way, errors due to invalid inputs and similar are forwarded without the need of duplicating the validation.
@@ -680,8 +682,8 @@ public class ApiV1Resource {
           @QueryParam("values") String values,
           @QueryParam("sortOnValue") String sortOnValue,
           @QueryParam("serviceUri") String serviceUri,
-          @QueryParam("text") String text
-          
+          @QueryParam("text") String text,
+          @QueryParam("notHealthy") String notHealthy
   ) throws Exception {
 
     String authorization = requestContext.getHeader("Authorization");
@@ -696,11 +698,14 @@ public class ApiV1Resource {
       // sorted in the list does not affect any way the JSON output.
       List<String> competentServiceMapsPrefix = getCompetentServiceMaps(selection, "/api/v1/iot-search",  "json");
 
-      // If just one service map must be queried, simply forward the query, return its result, and you are done
-      if (competentServiceMapsPrefix.size() == 1) {
-        String serviceMapResponse = null;
+      boolean selectionOnSuri = (selection!=null && selection.startsWith("http:"));
+      //try all SMs until one returns 200 or 401
+      String serviceMapResponse = null;
+      for(String smPrefix: competentServiceMapsPrefix) {
+        //System.out.println("iot-search try on "+smPrefix);
+        String SMQUERY = null;
         try {
-          final String SMQUERY = competentServiceMapsPrefix.get(0) + "/api/v1/iot-search/?ssm=yes"
+          SMQUERY = smPrefix + "/api/v1/iot-search/?ssm=yes"
                   + (selection == null || selection.isEmpty() ? "" : "&selection=" + URLEncoder.encode(selection, "UTF-8"))
                   + (categories == null || categories.isEmpty() ? "" : "&categories=" + URLEncoder.encode(categories, "UTF-8"))
                   + (maxDists == null || maxDists.isEmpty() ? "" : "&maxDists=" + URLEncoder.encode(maxDists, "UTF-8"))
@@ -713,6 +718,7 @@ public class ApiV1Resource {
                   + (sortOnValue == null || sortOnValue.isEmpty() ? "" : "&sortOnValue=" + URLEncoder.encode(sortOnValue, "UTF-8"))
                   + (serviceUri == null || serviceUri.isEmpty() ? "" : "&serviceUri=" + URLEncoder.encode(serviceUri, "UTF-8"))
                   + (text == null || text.isEmpty() ? "" : "&text=" + URLEncoder.encode(text, "UTF-8"))
+                  + (notHealthy == null || notHealthy.isEmpty() ? "" : "&notHealthy=" + URLEncoder.encode(notHealthy, "UTF-8"))
                   ;
 
           Client client = ClientBuilder.newClient(getWtcCfg());
@@ -737,24 +743,37 @@ public class ApiV1Resource {
             }
           }
           serviceMapResponse = r.readEntity(String.class);
-          return Response.ok(new JSONObject(serviceMapResponse).toString(4), MediaType.APPLICATION_JSON).header("Access-Control-Allow-Origin", "*").status(r.getStatus()).build();
+          //System.out.println("status:"+r.getStatus()+" "+serviceMapResponse);
+          if(r.getStatus()==200 || 
+                  r.getStatus()==401 || 
+                  r.getStatus()==403 || 
+                  (selectionOnSuri && !serviceMapResponse.contains("no geo point")))
+            return Response.ok(new JSONObject(serviceMapResponse).toString(4), MediaType.APPLICATION_JSON)
+                    .header("Access-Control-Allow-Origin", "*")
+                    .status(r.getStatus())
+                    .build();
         } catch(JSONException je) {
             System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+            System.out.println("REQUEST:"+SMQUERY+"\nREPLY:\n"+serviceMapResponse);   
             je.printStackTrace();
-            System.out.println("HERE IS THE JSON THAT GENERATED THE ERROR:");
-            System.out.println(serviceMapResponse);   
-            return Response.status(500)
-                    .entity("{\"exception\":\"invalid json from SM\"}").build();
+            return Response.ok("{\"exception\":\"invalid json from SM\"}", MediaType.APPLICATION_JSON)
+                    .status(500)
+                    .header("Access-Control-Allow-Origin", "*")
+                    .build();
         } catch (Exception e) {
             System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+            System.out.println("REQUEST:"+SMQUERY+"\nREPLY:\n"+serviceMapResponse);   
             e.printStackTrace();
-          return Response.status(500)
-                  .entity("{\"exception\":\""+e.getMessage()+"\"}").build();
+          return Response.ok("{\"exception\":\""+e.getMessage()+"\"}", MediaType.APPLICATION_JSON)
+                  .status(500)
+                  .header("Access-Control-Allow-Origin", "*")
+                  .build();
         }
-      } else {
-        return Response.status(400).header("Access-Control-Allow-Origin", "*")
-                .entity("{\"error\":\""+competentServiceMapsPrefix.size()+" servicemap(s) matching selection, refine search to match only one servicemap\"}").build();
       }
+      return Response.ok(serviceMapResponse, MediaType.APPLICATION_JSON)
+              .status(400)
+              .header("Access-Control-Allow-Origin", "*")
+              .build();
   }
   
   // Manage requests for full details about a specific feature (bus stop, sensor, or other generic service) identifier through its URI.
@@ -3608,6 +3627,7 @@ public class ApiV1Resource {
     String httpRequestForwardedFor;
     String authorization;
     String referer;
+    long time, allTime;
 
     public RequestMakingAndHashThread(String r, int i, HashSet<String> BStopsFeaturedUniques, HashSet<String> SSitesFeaturedUniques, HashSet<String> SFeaturedUniques, HashSet<String> genericFeatures, HashSet<String> SPlainResponses, HashSet<String> SPlainResponseCodes, String httpRequestForwardedFor, String authorization, String referer) {
       request = r;
@@ -3627,6 +3647,7 @@ public class ApiV1Resource {
     public void run() {
 
       String serviceMapResponse = null;
+      long start = System.currentTimeMillis();
       try {
 
         ClientConfig config = getWtcCfg();
@@ -3647,6 +3668,7 @@ public class ApiV1Resource {
           }
         }
         serviceMapResponse = r.readEntity(String.class);
+        time = System.currentTimeMillis()-start;
         PlainResponses.add(serviceMapResponse);
         PlainResponseCodes.add(String.valueOf(r.getStatus()));
         if (r.getStatus() != 200) {
@@ -3717,7 +3739,7 @@ public class ApiV1Resource {
             System.out.println("HERE IS THE JSON THAT GENERATED THE ERROR:");          
             System.out.println(serviceMapResponse);
         } 
-
+      allTime = System.currentTimeMillis()-start;
     }
 
   }
