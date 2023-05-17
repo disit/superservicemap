@@ -119,7 +119,8 @@ public class ApiV1Resource {
           @QueryParam("fullCount") String fullCount,
           @QueryParam("accessToken") String accessToken,
           @QueryParam("apikey") String apikey,
-          @QueryParam("model") String model
+          @QueryParam("model") String model,
+          @QueryParam("aggregation") String aggregation
   ) throws Exception {
 
     String authorization = requestContext.getHeader("Authorization");
@@ -165,7 +166,8 @@ public class ApiV1Resource {
                   + (graphUri == null || graphUri.isEmpty() ? "" : "&graphUri=" + URLEncoder.encode(graphUri, "UTF-8"))
                   + (fullCount == null || fullCount.isEmpty() ? "" : "&fullCount=" + URLEncoder.encode(fullCount, "UTF-8"))
                   + (apikey == null || apikey.isEmpty() ? "" : "&apikey=" + URLEncoder.encode(apikey, "UTF-8"))
-                  + (model == null || model.isEmpty() ? "" : "&model=" + URLEncoder.encode(model, "UTF-8"));
+                  + (model == null || model.isEmpty() ? "" : "&model=" + URLEncoder.encode(model, "UTF-8"))
+                  + (aggregation == null || aggregation.isEmpty() ? "" : "&aggregation=" + URLEncoder.encode(aggregation, "UTF-8"));
           Client client = ClientBuilder.newClient(getWtcCfg());
           WebTarget targetServiceMap = client.target(UriBuilder.fromUri(SMQUERY).build());
           String httpRequestForwardedFor = "";
@@ -241,7 +243,8 @@ public class ApiV1Resource {
                   + (graphUri == null || graphUri.isEmpty() ? "" : "&graphUri=" + URLEncoder.encode(graphUri, "UTF-8"))
                   + (fullCount == null || fullCount.isEmpty() ? "" : "&fullCount=" + URLEncoder.encode(fullCount, "UTF-8"))
                   + (apikey == null || apikey.isEmpty() ? "" : "&apikey=" + URLEncoder.encode(apikey, "UTF-8"))
-                  + (model == null || model.isEmpty() ? "" : "&model=" + URLEncoder.encode(model, "UTF-8"));
+                  + (model == null || model.isEmpty() ? "" : "&model=" + URLEncoder.encode(model, "UTF-8"))
+                  + (aggregation == null || aggregation.isEmpty() ? "" : "&aggregation=" + URLEncoder.encode(aggregation, "UTF-8"));
 
           String httpRequestForwardedFor = "";
           if (requestContext.getHeader("X-Forwarded-For") != null && !requestContext.getHeader("X-Forwarded-For").isEmpty()) {
@@ -719,6 +722,120 @@ public class ApiV1Resource {
                   + (serviceUri == null || serviceUri.isEmpty() ? "" : "&serviceUri=" + URLEncoder.encode(serviceUri, "UTF-8"))
                   + (text == null || text.isEmpty() ? "" : "&text=" + URLEncoder.encode(text, "UTF-8"))
                   + (notHealthy == null || notHealthy.isEmpty() ? "" : "&notHealthy=" + URLEncoder.encode(notHealthy, "UTF-8"))
+                  ;
+
+          Client client = ClientBuilder.newClient(getWtcCfg());
+          WebTarget targetServiceMap = client.target(UriBuilder.fromUri(SMQUERY).build());
+          String httpRequestForwardedFor = "";
+          if (requestContext.getHeader("X-Forwarded-For") != null && !requestContext.getHeader("X-Forwarded-For").isEmpty()) {
+            httpRequestForwardedFor += requestContext.getHeader("X-Forwarded-For") + ",";
+          }
+          httpRequestForwardedFor += ipAddressRequestCameFrom;
+          Response r;
+          if (requestContext.getHeader("Referer") == null) {
+            if (authorization == null || !doAuth(competentServiceMapsPrefix.get(0))) {
+              r = targetServiceMap.request().header("X-Forwarded-For", httpRequestForwardedFor).get();
+            } else {
+              r = targetServiceMap.request().header("X-Forwarded-For", httpRequestForwardedFor).header("Authorization", authorization).get();
+            }
+          } else {
+            if (authorization == null || !doAuth(competentServiceMapsPrefix.get(0))) {
+              r = targetServiceMap.request().header("X-Forwarded-For", httpRequestForwardedFor).header("Referer", requestContext.getHeader("Referer")).get();
+            } else {
+              r = targetServiceMap.request().header("X-Forwarded-For", httpRequestForwardedFor).header("Authorization", authorization).header("Referer", requestContext.getHeader("Referer")).get();
+            }
+          }
+          serviceMapResponse = r.readEntity(String.class);
+          //System.out.println("status:"+r.getStatus()+" "+serviceMapResponse);
+          if(r.getStatus()==200 || 
+                  r.getStatus()==401 || 
+                  r.getStatus()==403 || 
+                  (selectionOnSuri && !serviceMapResponse.contains("no geo point")))
+            return Response.ok(new JSONObject(serviceMapResponse).toString(4), MediaType.APPLICATION_JSON)
+                    .header("Access-Control-Allow-Origin", "*")
+                    .status(r.getStatus())
+                    .build();
+        } catch(JSONException je) {
+            System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+            System.out.println("REQUEST:"+SMQUERY+"\nREPLY:\n"+serviceMapResponse);   
+            je.printStackTrace();
+            return Response.ok("{\"exception\":\"invalid json from SM\"}", MediaType.APPLICATION_JSON)
+                    .status(500)
+                    .header("Access-Control-Allow-Origin", "*")
+                    .build();
+        } catch (Exception e) {
+            System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+            System.out.println("REQUEST:"+SMQUERY+"\nREPLY:\n"+serviceMapResponse);   
+            e.printStackTrace();
+          return Response.ok("{\"exception\":\""+e.getMessage()+"\"}", MediaType.APPLICATION_JSON)
+                  .status(500)
+                  .header("Access-Control-Allow-Origin", "*")
+                  .build();
+        }
+      }
+      return Response.ok(serviceMapResponse, MediaType.APPLICATION_JSON)
+              .status(400)
+              .header("Access-Control-Allow-Origin", "*")
+              .build();
+  }
+  
+  @Path("iot-search/time-range")
+  @SuppressWarnings("deprecation")
+  @GET
+  public Response searchIoTTimeRange(
+          @QueryParam("selection") String selection,
+          @QueryParam("categories") String categories,
+          @QueryParam("maxDists") String maxDists,
+          @QueryParam("maxResults") String maxResults,
+          @QueryParam("requestFrom") String requestFrom,
+          @QueryParam("accessToken") String accessToken,
+          @QueryParam("model") String model,
+          @QueryParam("fromResult") String fromResult,
+          @QueryParam("valueFilters") String valueFilters,
+          @QueryParam("values") String values,
+          @QueryParam("sortOnValue") String sortOnValue,
+          @QueryParam("serviceUri") String serviceUri,
+          @QueryParam("text") String text,
+          @QueryParam("fromTime") String fromTime,
+          @QueryParam("toTime") String toTime,
+          @QueryParam("aggregate") String aggregate          
+  ) throws Exception {
+
+    String authorization = requestContext.getHeader("Authorization");
+    if (authorization == null && accessToken != null && !accessToken.isEmpty()) {
+      authorization = "Bearer " + accessToken;
+    }
+
+    String ipAddressRequestCameFrom = requestContext.getRemoteAddr();
+
+      // Identify service maps that have to be queried based on the given position, sorted by priority4html, so that if HTML format is requested,
+      // getting the first element of the list ignoring all the others is the right choice. JSON output is not affected since how elements are
+      // sorted in the list does not affect any way the JSON output.
+      List<String> competentServiceMapsPrefix = getCompetentServiceMaps(selection, "/api/v1/iot-search/time-range",  "json");
+
+      boolean selectionOnSuri = (selection!=null && selection.startsWith("http:"));
+      //try all SMs until one returns 200 or 401
+      String serviceMapResponse = null;
+      for(String smPrefix: competentServiceMapsPrefix) {
+        //System.out.println("iot-search try on "+smPrefix);
+        String SMQUERY = null;
+        try {
+          SMQUERY = smPrefix + "/api/v1/iot-search/time-range/?ssm=yes"
+                  + (selection == null || selection.isEmpty() ? "" : "&selection=" + URLEncoder.encode(selection, "UTF-8"))
+                  + (categories == null || categories.isEmpty() ? "" : "&categories=" + URLEncoder.encode(categories, "UTF-8"))
+                  + (maxDists == null || maxDists.isEmpty() ? "" : "&maxDists=" + URLEncoder.encode(maxDists, "UTF-8"))
+                  + (maxResults == null || maxResults.isEmpty() ? "" : "&maxResults=" + URLEncoder.encode(maxResults, "UTF-8"))
+                  + (requestFrom == null || requestFrom.isEmpty() ? "" : "&requestFrom=" + URLEncoder.encode(requestFrom, "UTF-8"))
+                  + (model == null || model.isEmpty() ? "" : "&model=" + URLEncoder.encode(model, "UTF-8"))
+                  + (fromResult == null || fromResult.isEmpty() ? "" : "&fromResult=" + URLEncoder.encode(fromResult, "UTF-8"))
+                  + (valueFilters == null || valueFilters.isEmpty() ? "" : "&valueFilters=" + URLEncoder.encode(valueFilters, "UTF-8"))
+                  + (values == null || values.isEmpty() ? "" : "&values=" + URLEncoder.encode(values, "UTF-8"))
+                  + (sortOnValue == null || sortOnValue.isEmpty() ? "" : "&sortOnValue=" + URLEncoder.encode(sortOnValue, "UTF-8"))
+                  + (serviceUri == null || serviceUri.isEmpty() ? "" : "&serviceUri=" + URLEncoder.encode(serviceUri, "UTF-8"))
+                  + (text == null || text.isEmpty() ? "" : "&text=" + URLEncoder.encode(text, "UTF-8"))
+                  + (fromTime == null || fromTime.isEmpty() ? "" : "&fromTime=" + URLEncoder.encode(fromTime, "UTF-8"))
+                  + (toTime == null || toTime.isEmpty() ? "" : "&toTime=" + URLEncoder.encode(toTime, "UTF-8"))
+                  + (aggregate == null || aggregate.isEmpty() ? "" : "&aggregate=" + URLEncoder.encode(aggregate, "UTF-8"))
                   ;
 
           Client client = ClientBuilder.newClient(getWtcCfg());
@@ -2970,7 +3087,7 @@ public class ApiV1Resource {
                             if (requestContext.getParameter("uid") != null) uid = requestContext.getParameter("uid");
                             if (requestContext.getParameter("accessToken") != null) accessToken = requestContext.getParameter("accessToken");
                             long tstart1 = System.currentTimeMillis();
-                            Response services = getServices(selection, queryId, search, categories, text, maxDists, maxResults, lang, null, uid, "json", null, null, null, requestServiceUri, "true", "WFS", null, null, null, null, null, null, "true", accessToken, null, null);
+                            Response services = getServices(selection, queryId, search, categories, text, maxDists, maxResults, lang, null, uid, "json", null, null, null, requestServiceUri, "true", "WFS", null, null, null, null, null, null, "true", accessToken, null, null, null);
                             jsonStr = services.getEntity().toString();
                             long tend1 = System.currentTimeMillis();
                             JSONObject jsonObj = new JSONObject(jsonStr);
