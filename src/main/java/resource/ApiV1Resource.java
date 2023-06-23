@@ -653,7 +653,8 @@ public class ApiV1Resource {
               + (healthiness == null || healthiness.isEmpty() ? "" : "&healthiness=" + URLEncoder.encode(healthiness, "UTF-8"))
               + (graphUri == null || graphUri.isEmpty() ? "" : "&graphUri=" + URLEncoder.encode(graphUri, "UTF-8"))
               + (fullCount == null || fullCount.isEmpty() ? "" : "&fullCount=" + URLEncoder.encode(fullCount, "UTF-8"))
-              + (apikey == null || apikey.isEmpty() ? "" : "&apikey=" + URLEncoder.encode(apikey, "UTF-8"));
+              + (apikey == null || apikey.isEmpty() ? "" : "&apikey=" + URLEncoder.encode(apikey, "UTF-8"))
+              + (aggregation == null || aggregation.isEmpty() ? "" : "&aggregation=" + URLEncoder.encode(aggregation, "UTF-8"));
 
       String httpRequestForwardedFor = "";
       if (requestContext.getHeader("X-Forwarded-For") != null && !requestContext.getHeader("X-Forwarded-For").isEmpty()) {
