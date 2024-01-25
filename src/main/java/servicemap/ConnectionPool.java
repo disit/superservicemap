@@ -62,6 +62,7 @@ public class ConnectionPool {
    */
   public String PASSWORD;
 
+  public String validationQuery;
   /**
    *
    */
@@ -81,11 +82,12 @@ public class ConnectionPool {
      * @param maxConnections
    * @throws IOException
    */
-  public ConnectionPool(String url, String username, String password, int maxConnections) throws IOException {
+  public ConnectionPool(String url, String username, String password, int maxConnections, String validationQuery) throws IOException {
     URL = url;
     USERNAME = username;
     PASSWORD = password;
     connections = maxConnections;
+    this.validationQuery = validationQuery;
   }
 
   /**
@@ -129,7 +131,7 @@ public class ConnectionPool {
      */
     PoolableConnectionFactory pcf
             = new PoolableConnectionFactory(cf, connectionPool,
-                    null, null, false, true);
+                    null, validationQuery, false, true);
     return new PoolingDataSource(connectionPool);
   }
 
@@ -153,6 +155,7 @@ public class ConnectionPool {
         String userMySql = "";
         String passMySql = "";
         String timezoneMySql = "Europe/Rome";
+        String validationQuery = null;
         maxwait = 1000;
         
      
@@ -185,6 +188,8 @@ public class ConnectionPool {
                         timezoneMySql = eElement.getElementsByTagName("value").item(0).getTextContent();
                     } else if(eElement.getAttribute("id").equalsIgnoreCase("maxWait")) {
                         maxwait = Integer.parseInt(eElement.getElementsByTagName("value").item(0).getTextContent());
+                    } else if(eElement.getAttribute("id").equalsIgnoreCase("validationQuery")) {
+                        validationQuery = eElement.getElementsByTagName("value").item(0).getTextContent();
                     }
                 }
             }
@@ -197,11 +202,11 @@ public class ConnectionPool {
                         
         // Use cfg params
         
-        String url = urlMySqlDB+dbMySql+"?useSSL=false&useUnicode=true&characterEncoding=utf-8&serverTimezone="+timezoneMySql;
+        String url = urlMySqlDB+dbMySql+"?useSSL=false&useUnicode=true&characterEncoding=utf-8&&autoReconnect=true&serverTimezone="+timezoneMySql;
         int maxConnections = Integer.parseInt(maxConnectionsMySql);
         synchronized(ConnectionPool.class) {
             if(connPool == null) {
-                connPool = new ConnectionPool(url, userMySql, passMySql,maxConnections);
+                connPool = new ConnectionPool(url, userMySql, passMySql, maxConnections, validationQuery);
                 System.out.println("connected "+url+" maxConnections: "+maxConnections);
             }
             if (dataSource == null) {
