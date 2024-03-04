@@ -1013,6 +1013,8 @@ public class ApiV1Resource {
         }
         else {
             store.insertCache(serviceUri, tmpc, true);
+            System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+            System.out.println("ERROR INCONSISTENT REPLY FROM SMs: responses "+responses+" codes "+responseCodes);
             return Response.status(500)
                     .entity("{\"error\":\"inconsistent reply from SMs\"")
                     .build();

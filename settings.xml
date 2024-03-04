@@ -1,5 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <setting>
+  <label id="db">
+    <value>SuperServiceMap</value>
+  </label>
+  <label id="urlMySqlDB">
+    <value>jdbc:mysql://localhost/</value>
+  </label>
   <label id="username">
     <value>root</value>
   </label>

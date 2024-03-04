@@ -202,7 +202,7 @@ public class ConnectionPool {
                         
         // Use cfg params
         
-        String url = urlMySqlDB+dbMySql+"?useSSL=false&useUnicode=true&characterEncoding=utf-8&&autoReconnect=true&serverTimezone="+timezoneMySql;
+        String url = urlMySqlDB+dbMySql+"?useSSL=false&useUnicode=true&characterEncoding=utf-8&autoReconnect=true&serverTimezone="+timezoneMySql;
         int maxConnections = Integer.parseInt(maxConnectionsMySql);
         synchronized(ConnectionPool.class) {
             if(connPool == null) {
