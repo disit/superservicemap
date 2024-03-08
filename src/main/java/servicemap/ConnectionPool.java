@@ -114,6 +114,7 @@ public class ConnectionPool {
     // if the pool is exhausted (i.e., the maximum number of active objects has been reached), the borrowObject() method should simply create a new object anyway
     connectionPool.setWhenExhaustedAction(GenericObjectPool.WHEN_EXHAUSTED_BLOCK); // era GROW
     connectionPool.setMaxWait(maxwait);
+    connectionPool.setTestOnBorrow(true);
 
     /**
      * Creates a connection factory object which will be use by the pool to
