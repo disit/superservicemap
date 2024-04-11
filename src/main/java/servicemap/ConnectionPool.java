@@ -114,7 +114,8 @@ public class ConnectionPool {
     // if the pool is exhausted (i.e., the maximum number of active objects has been reached), the borrowObject() method should simply create a new object anyway
     connectionPool.setWhenExhaustedAction(GenericObjectPool.WHEN_EXHAUSTED_BLOCK); // era GROW
     connectionPool.setMaxWait(maxwait);
-    connectionPool.setTestOnBorrow(true);
+    if(validationQuery != null)
+        connectionPool.setTestOnBorrow(true);
 
     /**
      * Creates a connection factory object which will be use by the pool to
@@ -156,7 +157,7 @@ public class ConnectionPool {
         String userMySql = "";
         String passMySql = "";
         String timezoneMySql = "Europe/Rome";
-        String validationQuery = null;
+        String validationQuery = "SELECT 1";
         maxwait = 1000;
         
      
@@ -191,6 +192,8 @@ public class ConnectionPool {
                         maxwait = Integer.parseInt(eElement.getElementsByTagName("value").item(0).getTextContent());
                     } else if(eElement.getAttribute("id").equalsIgnoreCase("validationQuery")) {
                         validationQuery = eElement.getElementsByTagName("value").item(0).getTextContent();
+                        if(validationQuery.equals("null") || validationQuery.trim().isEmpty())
+                            validationQuery = null;
                     }
                 }
             }
