@@ -687,7 +687,8 @@ public class ApiV1Resource {
           @QueryParam("sortOnValue") String sortOnValue,
           @QueryParam("serviceUri") String serviceUri,
           @QueryParam("text") String text,
-          @QueryParam("notHealthy") String notHealthy
+          @QueryParam("notHealthy") String notHealthy,
+          @QueryParam("forceAccessCheck") String forceAccessCheck
   ) throws Exception {
 
     String authorization = requestContext.getHeader("Authorization");
@@ -723,6 +724,7 @@ public class ApiV1Resource {
                   + (serviceUri == null || serviceUri.isEmpty() ? "" : "&serviceUri=" + URLEncoder.encode(serviceUri, "UTF-8"))
                   + (text == null || text.isEmpty() ? "" : "&text=" + URLEncoder.encode(text, "UTF-8"))
                   + (notHealthy == null || notHealthy.isEmpty() ? "" : "&notHealthy=" + URLEncoder.encode(notHealthy, "UTF-8"))
+                  + (forceAccessCheck == null || forceAccessCheck.isEmpty() ? "" : "&forceAccessCheck=" + URLEncoder.encode(forceAccessCheck, "UTF-8"))
                   ;
 
           Client client = ClientBuilder.newClient(getWtcCfg());

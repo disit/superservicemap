@@ -115,7 +115,7 @@ public class MySQLManager {
                 DocumentBuilder docBuilder = docBuilderFactory.newDocumentBuilder();
                 File settings = new File("ssm-settings.xml");
                 if(!settings.exists()) {
-                  System.out.println("WARNING missing "+settings.getAbsolutePath());
+                  //System.out.println("WARNING missing "+settings.getAbsolutePath());
                   settings = new File("settings.xml");
                   if(!settings.exists()) {
                     System.out.println("ERROR missing "+settings.getAbsolutePath());
