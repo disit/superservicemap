@@ -1284,6 +1284,100 @@ public class ApiV1Resource {
 
   }
 
+  @Path("trafficflow")
+  @SuppressWarnings("deprecation")
+  @GET
+  public Response searchTrafficFlow(
+          @QueryParam("geometry") String geometry,
+          @QueryParam("roadElement") String roadElement,
+          @QueryParam("kind") String kind,
+          @QueryParam("scenario") String scenario,
+          @QueryParam("dateObservedStart") String dateObservedStart,
+          @QueryParam("dateObservedEnd") String dateObservedEnd,
+          @QueryParam("accessToken") String accessToken
+  ) throws Exception {
+    String authorization = requestContext.getHeader("Authorization");
+    if (authorization == null && accessToken != null && !accessToken.isEmpty()) {
+      authorization = "Bearer " + accessToken;
+    }
+
+    String ipAddressRequestCameFrom = requestContext.getRemoteAddr();
+
+      // Identify service maps that have to be queried based on the given position, sorted by priority4html, so that if HTML format is requested,
+      // getting the first element of the list ignoring all the others is the right choice. JSON output is not affected since how elements are
+      // sorted in the list does not affect any way the JSON output.
+      List<String> competentServiceMapsPrefix = getCompetentServiceMaps(geometry, "/api/v1/trafficflow",  "json");
+
+      //try all SMs until one returns 200 or 401
+      String serviceMapResponse = null;
+      for(String smPrefix: competentServiceMapsPrefix) {
+        //System.out.println("iot-search try on "+smPrefix);
+        String SMQUERY = null;
+        try {
+          SMQUERY = smPrefix + "/api/v1/trafficflow/?ssm=yes"
+                  + (geometry == null || geometry.isEmpty() ? "" : "&geometry=" + URLEncoder.encode(geometry, "UTF-8"))
+                  + (roadElement == null || roadElement.isEmpty() ? "" : "&roadElement=" + URLEncoder.encode(roadElement, "UTF-8"))
+                  + (kind == null || kind.isEmpty() ? "" : "&kind=" + URLEncoder.encode(kind, "UTF-8"))
+                  + (scenario == null || scenario.isEmpty() ? "" : "&scenario=" + URLEncoder.encode(scenario, "UTF-8"))
+                  + (dateObservedStart == null || dateObservedStart.isEmpty() ? "" : "&dateObservedStart=" + URLEncoder.encode(dateObservedStart, "UTF-8"))
+                  + (dateObservedEnd == null || dateObservedEnd.isEmpty() ? "" : "&dateObservedEnd=" + URLEncoder.encode(dateObservedEnd, "UTF-8"))
+                  ;
+
+          Client client = ClientBuilder.newClient(getWtcCfg());
+          WebTarget targetServiceMap = client.target(UriBuilder.fromUri(SMQUERY).build());
+          String httpRequestForwardedFor = "";
+          if (requestContext.getHeader("X-Forwarded-For") != null && !requestContext.getHeader("X-Forwarded-For").isEmpty()) {
+            httpRequestForwardedFor += requestContext.getHeader("X-Forwarded-For") + ",";
+          }
+          httpRequestForwardedFor += ipAddressRequestCameFrom;
+          Response r;
+          if (requestContext.getHeader("Referer") == null) {
+            if (authorization == null || !doAuth(competentServiceMapsPrefix.get(0))) {
+              r = targetServiceMap.request().header("X-Forwarded-For", httpRequestForwardedFor).get();
+            } else {
+              r = targetServiceMap.request().header("X-Forwarded-For", httpRequestForwardedFor).header("Authorization", authorization).get();
+            }
+          } else {
+            if (authorization == null || !doAuth(competentServiceMapsPrefix.get(0))) {
+              r = targetServiceMap.request().header("X-Forwarded-For", httpRequestForwardedFor).header("Referer", requestContext.getHeader("Referer")).get();
+            } else {
+              r = targetServiceMap.request().header("X-Forwarded-For", httpRequestForwardedFor).header("Authorization", authorization).header("Referer", requestContext.getHeader("Referer")).get();
+            }
+          }
+          serviceMapResponse = r.readEntity(String.class);
+          //System.out.println("status:"+r.getStatus()+" "+serviceMapResponse);
+          if(r.getStatus()==200 || 
+                  r.getStatus()==401 || 
+                  r.getStatus()==403 )
+            return Response.ok(new JSONObject(serviceMapResponse).toString(4), MediaType.APPLICATION_JSON)
+                    .header("Access-Control-Allow-Origin", "*")
+                    //.header("X-From", smPrefix)
+                    .status(r.getStatus())
+                    .build();
+        } catch(JSONException je) {
+            System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+            System.out.println("REQUEST:"+SMQUERY+"\nREPLY:\n"+serviceMapResponse);   
+            je.printStackTrace();
+            return Response.ok("{\"exception\":\"invalid json from SM\"}", MediaType.APPLICATION_JSON)
+                    .status(500)
+                    .header("Access-Control-Allow-Origin", "*")
+                    .build();
+        } catch (Exception e) {
+            System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
+            System.out.println("REQUEST:"+SMQUERY+"\nREPLY:\n"+serviceMapResponse);   
+            e.printStackTrace();
+          return Response.ok("{\"exception\":\""+e.getMessage()+"\"}", MediaType.APPLICATION_JSON)
+                  .status(500)
+                  .header("Access-Control-Allow-Origin", "*")
+                  .build();
+        }
+      }
+      return Response.ok(serviceMapResponse, MediaType.APPLICATION_JSON)
+              .status(400)
+              .header("Access-Control-Allow-Origin", "*")
+              .build();
+  }
+  
   // Manage event searches
   @SuppressWarnings("deprecation")
   @Path("/events")
