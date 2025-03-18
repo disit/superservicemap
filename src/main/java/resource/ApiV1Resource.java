@@ -126,7 +126,7 @@ public class ApiV1Resource {
 
     String authorization = requestContext.getHeader("Authorization");
     if (authorization == null && accessToken != null && !accessToken.isEmpty()) {
-      authorization = "bearer " + accessToken;
+      authorization = "Bearer " + accessToken;
     }
 
     String ipAddressRequestCameFrom = requestContext.getRemoteAddr();
@@ -696,7 +696,7 @@ public class ApiV1Resource {
 
     String authorization = requestContext.getHeader("Authorization");
     if (authorization == null && accessToken != null && !accessToken.isEmpty()) {
-      authorization = "bearer " + accessToken;
+      authorization = "Bearer " + accessToken;
     }
 
     String ipAddressRequestCameFrom = requestContext.getRemoteAddr();
