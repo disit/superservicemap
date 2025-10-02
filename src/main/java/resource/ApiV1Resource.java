@@ -917,7 +917,7 @@ public class ApiV1Resource {
       String idOfSMwithUri = store.getSMIdFromServiceUriCache(serviceUri);
 
       if (idOfSMwithUri != null) { // If it is cached
-        String entitystr = null;
+        String response = null;
         try {
           final String SMQUERY = store.getUrlPrefixFromSMid(idOfSMwithUri) + completePathAndQuery;
           Client client = ClientBuilder.newClient(getWtcCfg());
@@ -934,25 +934,25 @@ public class ApiV1Resource {
           Response r = rb.get();
           
           int status = r.getStatus();
+          response = r.readEntity(String.class);
           if("html".equals(format))
-            return Response.ok(goThere(store.getUrlPrefixFromSMid(idOfSMwithUri), entitystr), MediaType.TEXT_HTML).header("Access-Control-Allow-Origin", "*").status(status).build();
+            return Response.ok(goThere(store.getUrlPrefixFromSMid(idOfSMwithUri), response), MediaType.TEXT_HTML)
+                    .header("Access-Control-Allow-Origin", "*")
+                    .status(status)
+                    .build();
           else {
-            if(status==200) {
-              entitystr = r.readEntity(String.class);
-              return Response.ok(new JSONObject(entitystr).toString(4), MediaType.APPLICATION_JSON)
-                      .header("Access-Control-Allow-Origin", "*")
-                      .status(status)
-                      .build();
-            } else
-              return Response.ok("{\"error\":\"failed access to "+serviceUri+"\",\"origin\":\""+SMQUERY+"\"}",MediaType.APPLICATION_JSON)
-                      .status(status)
-                      .build();
+            Response.status(status)
+                        .entity(new JSONObject(response).toString(4))
+                        .type(MediaType.APPLICATION_JSON)
+                        .header("Access-Control-Allow-Origin", "*")
+                        .header("X-ServiceMap", idOfSMwithUri)
+                        .build();              
           }
         } catch(JSONException je) {
                 System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
                 je.printStackTrace();
                 System.out.println("HERE IS THE JSON THAT GENERATED THE ERROR:");
-                System.out.println(entitystr);   
+                System.out.println(response);   
         } catch (Exception e) {
           System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
             e.printStackTrace();
@@ -991,13 +991,23 @@ public class ApiV1Resource {
             response = r.readEntity(String.class).replaceAll("[\r]", "").replaceAll("[\n]", "");
             responseCodes.add(code);
             responses.add(response);
-            if (r.getStatus() == 200) {
+            if (r.getStatus() == 200 || r.getStatus() == 401 || r.getStatus() == 403) {
               store.insertCache(serviceUri, sMs.get(i).getId());
               String smPrefix = sMs.get(i).getPrefix();
-              MySQLManager.setBlockedSM(smPrefix, false);            
-              return Response.ok("html".equals(format) ? goThere(store.getUrlPrefixFromSMid(sMs.get(i).getId()), response) : new JSONObject(response).toString(4), "html".equals(format) ? MediaType.TEXT_HTML : MediaType.APPLICATION_JSON).header("Access-Control-Allow-Origin", "*").build();
-            }
-            else {
+              MySQLManager.setBlockedSM(smPrefix, false);
+              
+              if("html".equals(format))
+                return Response.ok( 
+                        goThere(store.getUrlPrefixFromSMid(sMs.get(i).getId()), response),
+                        MediaType.TEXT_HTML 
+                ).header("Access-Control-Allow-Origin", "*").build();
+              else 
+                return Response.status(r.getStatus())
+                        .entity(new JSONObject(response).toString(4))
+                        .type(MediaType.APPLICATION_JSON)
+                        .header("Access-Control-Allow-Origin", "*")
+                        .build();              
+            } else {
                 if(tmpc == null || r.getStatus() != 400) {
                     tmpc = sMs.get(i).getId();
                 }
@@ -1021,7 +1031,7 @@ public class ApiV1Resource {
             System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
             System.out.println("ERROR INCONSISTENT REPLY FROM SMs: responses "+responses+" codes "+responseCodes);
             return Response.status(500)
-                    .entity("{\"error\":\"inconsistent reply from SMs\"")
+                    .entity("{\"error\":\"inconsistent reply from SMs\" }")
                     .build();
         }
       } catch(JSONException je) {
@@ -4006,6 +4016,7 @@ public class ApiV1Resource {
           r = targetServiceMap.request().header("X-Forwarded-For", httpRequestForwardedFor).header("Referer", this.referer).get();
         }
         serviceMapResponse = r.readEntity(String.class);
+        //System.out.println(r+" response:\n"+Arrays.toString(serviceMapResponse.getBytes())+"\n hash: "+serviceMapResponse.hashCode());
         plainResponses.add(serviceMapResponse);
         plainResponseCodes.add(String.valueOf(r.getStatus()));
         MySQLManager.setBlockedSM(prefixSM, false);
