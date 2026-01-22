@@ -165,7 +165,7 @@ public class ConnectionPool {
         
         try {
             
-            DocumentBuilderFactory docBuilderFactory = DocumentBuilderFactory.newInstance();
+            DocumentBuilderFactory docBuilderFactory = XmlSecurity.newSecureDocumentBuilderFactory();
             DocumentBuilder docBuilder = docBuilderFactory.newDocumentBuilder();
             Document doc = docBuilder.parse(new File("settings.xml"));
             doc.getDocumentElement().normalize();

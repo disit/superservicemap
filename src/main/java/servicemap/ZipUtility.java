@@ -68,15 +68,19 @@ public class ZipUtility {
 		if (!destDir.exists()) {
 			destDir.mkdir();
 		}
+		File canonicalDestDir = destDir.getCanonicalFile();
 		ZipInputStream zipIn = new ZipInputStream(new FileInputStream(zippedDir));
 		ZipEntry entry = zipIn.getNextEntry();
 		while (entry != null) {
-			String filePath = destDir + File.separator + entry.getName();
+			File entryTarget = new File(destDir, entry.getName());
+			File canonicalTarget = entryTarget.getCanonicalFile();
+			if (!canonicalTarget.getPath().startsWith(canonicalDestDir.getPath() + File.separator)) {
+				throw new IOException("Zip entry outside target dir: " + entry.getName());
+			}
 			if (!entry.isDirectory()) {
-				extractFile(zipIn, filePath);
+				extractFile(zipIn, canonicalTarget);
 			} else {
-				File dir = new File(filePath);
-				dir.mkdir();
+				canonicalTarget.mkdir();
 			}
 			zipIn.closeEntry();
 			entry = zipIn.getNextEntry();
@@ -84,8 +88,8 @@ public class ZipUtility {
 		zipIn.close();
 	}
 
-	private static void extractFile(ZipInputStream zipIn, String filePath) throws IOException {
-		BufferedOutputStream bos = new BufferedOutputStream(new FileOutputStream(filePath));
+	private static void extractFile(ZipInputStream zipIn, File targetFile) throws IOException {
+		BufferedOutputStream bos = new BufferedOutputStream(new FileOutputStream(targetFile));
 		byte[] bytesIn = new byte[4096];
 		int read = 0;
 		while ((read = zipIn.read(bytesIn)) != -1) {

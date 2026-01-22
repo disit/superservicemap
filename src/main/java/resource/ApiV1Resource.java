@@ -79,6 +79,7 @@ import org.xml.sax.helpers.DefaultHandler;
 import servicemap.GeometryAdapter;
 import servicemap.MySQLManager;
 import servicemap.ServiceMap;
+import servicemap.XmlSecurity;
 import servicemap.WfsException;
 import servicemap.WfsServer;
 
@@ -3032,7 +3033,7 @@ public class ApiV1Resource {
         }
         if(pFilter != null) {
             try {
-                DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
+                DocumentBuilderFactory dbf = XmlSecurity.newSecureDocumentBuilderFactory();
                 DocumentBuilder db = dbf.newDocumentBuilder(); 
                 Document doc = db.parse(new InputSource(new StringReader(requestXml)));
                 Element fesFilter = (Element)doc.getElementsByTagName("fes:Filter").item(0);            
@@ -3081,7 +3082,7 @@ public class ApiV1Resource {
             double upperCornerLong = Double.parseDouble(selection.split(";")[3]);
             double upperCornerLat = Double.parseDouble(selection.split(";")[2]);
         
-            javax.xml.parsers.DocumentBuilderFactory factory = javax.xml.parsers.DocumentBuilderFactory.newInstance();
+            javax.xml.parsers.DocumentBuilderFactory factory = XmlSecurity.newSecureDocumentBuilderFactory();
             javax.xml.parsers.DocumentBuilder builder = factory.newDocumentBuilder();
             org.w3c.dom.Document document = builder.parse(new InputSource(new StringReader(requestXml)));
             Element root = document.getDocumentElement();
@@ -3504,7 +3505,7 @@ public class ApiV1Resource {
         String toTime = null;
         if(pFilter != null) {
             try {
-                DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
+                DocumentBuilderFactory dbf = XmlSecurity.newSecureDocumentBuilderFactory();
                 DocumentBuilder db = dbf.newDocumentBuilder(); 
                 Document doc = db.parse(new InputSource(new StringReader(pFilter)));
                 if(doc.getDocumentElement().getElementsByTagName("fes:After").getLength() > 0) fromTime = ((Element)doc.getDocumentElement().getElementsByTagName("fes:After").item(0)).getElementsByTagName("gml:timePosition").item(0).getTextContent();
@@ -4208,7 +4209,7 @@ public class ApiV1Resource {
         }
       }
     }
-    SAXParserFactory factory = SAXParserFactory.newInstance();
+    SAXParserFactory factory = XmlSecurity.newSecureSaxParserFactory();
     SAXParser saxParser = factory.newSAXParser();
     AddressRdfParser handler = new AddressRdfParser();
     saxParser.parse(new InputSource(new StringReader(addressRdf)), handler);
@@ -4252,7 +4253,7 @@ public class ApiV1Resource {
       }
 
     }
-    factory = SAXParserFactory.newInstance();
+    factory = XmlSecurity.newSecureSaxParserFactory();
     saxParser = factory.newSAXParser();
     AccessRdfParser ahandler = new AccessRdfParser();
     saxParser.parse(new InputSource(new StringReader(accessRdf)), ahandler);
@@ -4978,7 +4979,7 @@ public class ApiV1Resource {
     
     private boolean iterateAll() {
         try {
-            DocumentBuilderFactory docBuilderFactory = DocumentBuilderFactory.newInstance();
+            DocumentBuilderFactory docBuilderFactory = XmlSecurity.newSecureDocumentBuilderFactory();
             DocumentBuilder docBuilder = docBuilderFactory.newDocumentBuilder();
             Document doc = docBuilder.parse(new File("settings.xml"));
             doc.getDocumentElement().normalize();          
@@ -5005,7 +5006,7 @@ public class ApiV1Resource {
         int webtConnTmout = 60000;
         int webtReadTmout = 60000;        
         try {
-            DocumentBuilderFactory docBuilderFactory = DocumentBuilderFactory.newInstance();
+            DocumentBuilderFactory docBuilderFactory = XmlSecurity.newSecureDocumentBuilderFactory();
             DocumentBuilder docBuilder = docBuilderFactory.newDocumentBuilder();
             Document doc = docBuilder.parse(new File("settings.xml"));
             doc.getDocumentElement().normalize();          

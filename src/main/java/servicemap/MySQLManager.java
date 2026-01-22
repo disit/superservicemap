@@ -111,7 +111,7 @@ public class MySQLManager {
                 // This will load the MySQL driver, each DB has its own driver
                 Class.forName("com.mysql.cj.jdbc.Driver");
                 
-                DocumentBuilderFactory docBuilderFactory = DocumentBuilderFactory.newInstance();
+                DocumentBuilderFactory docBuilderFactory = XmlSecurity.newSecureDocumentBuilderFactory();
                 DocumentBuilder docBuilder = docBuilderFactory.newDocumentBuilder();
                 File settings = new File("ssm-settings.xml");
                 if(!settings.exists()) {
@@ -178,7 +178,12 @@ public class MySQLManager {
             try {
                     // connection = DriverManager.getConnection("jdbc:mysql://" + IPADDRESS + "/" + DATABASE + "?user=" + USERNAME + "&password=" + PASSWORD + "&useSSL=false&serverTimezone=UTC");
                     connection = ConnectionPool.getConnection(new Object(){}.getClass().getEnclosingMethod().getName());
-                    preparedStatement = connection.prepareStatement("SELECT * FROM "  + SMTABLE + " sm left join " + SMPTABLE + " smp on smp.api = '"+api+"' and smp.format = '"+format+"' and smp.servicemaps_id = sm.id where coalesce(smp.priority,0) <> -1 order by smp.priority desc");
+                    preparedStatement = connection.prepareStatement(
+                            "SELECT * FROM " + SMTABLE + " sm left join " + SMPTABLE
+                                    + " smp on smp.api = ? and smp.format = ? and smp.servicemaps_id = sm.id"
+                                    + " where coalesce(smp.priority,0) <> -1 order by smp.priority desc");
+                    preparedStatement.setString(1, api);
+                    preparedStatement.setString(2, format);
                     resultSet = preparedStatement.executeQuery();
                     return getQueryResult(resultSet);
             } catch (SQLException e) {
@@ -594,8 +599,12 @@ public class MySQLManager {
             try {
                 connection = ConnectionPool.getConnection(new Object(){}.getClass().getEnclosingMethod().getName());
 
-                preparedStatement = connection
-                                .prepareStatement("SELECT urlPrefix, competenceArea FROM "  + SMTABLE + " sm left join " + SMPTABLE + " smp on smp.api = '"+api+"' and smp.format = '"+format+"' and smp.servicemaps_id = sm.id where coalesce(smp.priority,0) <> -1 order by smp.priority desc");
+                preparedStatement = connection.prepareStatement(
+                        "SELECT urlPrefix, competenceArea FROM " + SMTABLE + " sm left join " + SMPTABLE
+                                + " smp on smp.api = ? and smp.format = ? and smp.servicemaps_id = sm.id"
+                                + " where coalesce(smp.priority,0) <> -1 order by smp.priority desc");
+                preparedStatement.setString(1, api);
+                preparedStatement.setString(2, format);
                 resultSet = preparedStatement.executeQuery();
                 while (resultSet.next()) {
                   String prefix = resultSet.getString("urlPrefix");
